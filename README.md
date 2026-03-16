@@ -4,8 +4,11 @@ SoniAladin is an application developed in the context of the Open Science initia
 
 NOTE:
 The voice recognition module requires the local model vosk-model-small-en-us-0.15.
+
 	1- Download and unzip it from: https://alphacephei.com/vosk/models
+	
 	2- Copy the unzipped vosk-model-small-en-us-0.15 folder in this SoniAladin folder.
+	
 	3- Run the Jupyter notebook.
 
 US English model for mobile Vosk applications
