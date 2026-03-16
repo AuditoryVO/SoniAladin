@@ -7,7 +7,7 @@ The voice recognition module requires the local model vosk-model-small-en-us-0.1
 
 	1- Download and unzip it from: https://alphacephei.com/vosk/models
 	
-	2- Copy the unzipped vosk-model-small-en-us-0.15 folder in this SoniAladin folder.
+	2- Copy the unzipped vosk-model-small-en-us-0.15 folder in the SoniAladin folder.
 	
 	3- Run the Jupyter notebook.
 
