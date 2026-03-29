@@ -5,6 +5,7 @@ import threading
 import numpy as np
 import sounddevice as sd
 from PIL import ImageGrab
+from pynput import keyboard
 from IPython.display import Audio
 from vosk import Model, KaldiRecognizer
 
@@ -37,13 +38,33 @@ def callback(indata, frames, time, status):
         print(status)
     q.put(bytes(indata))
 
+
+#Keyboard control
+
+def on_press(key):
+    global running
+    try:
+        if key == keyboard.Key.left:
+            print("Stopping sonification")
+            ctrl.put("Stop")
+        elif key == keyboard.Key.right:
+            print("Starting sonification")
+            ctrl.put("Sonification")
+        elif key == keyboard.Key.esc:
+            running = False
+            return False
+    except Exception as e:
+        print("error:", e)
+
+
 #Continuous listening for sonification control
 def listening():
-    print("Listening... Say 'music' to start sonification, 'stop' to stop it, and 'exit' to finish.")
+    print("Listening... Say 'music' or press 'right arrow' to start the sonification. Say 'stop' or press 'left arrow' to stop the sonification. Say 'exit' or press'Esc' to finish.")
     with sd.RawInputStream(samplerate=16000, blocksize=8000, dtype='int16',
                            channels=1, callback=callback):
         while True:
-            data = q.get()
+            data = q.get()                  #gets speech
+
             if rec.AcceptWaveform(data):
                 result = json.loads(rec.Result())
                 text = result.get('text', '').lower()
@@ -62,6 +83,10 @@ def listening():
 t1 = threading.Thread(target=listening)
 t1.start()
 
+t2 = keyboard.Listener(on_press=on_press)
+t2.start()
+
+
 running = True
 
 while running:
@@ -71,7 +96,7 @@ while running:
             print("Displaying Sonification")
     
             # Sonification parameters
-            high_threshold = 45   #Bright levels
+            high_threshold = 65   #Bright levels
             low_threshold = 15
             resolution = 4         #Pixels
         
@@ -184,7 +209,7 @@ while running:
                         img = cv2.imread("SoniAladin/image_aladin.png")
                         cv2.imshow(window_name, img)
                                 
-                        time.sleep(.025) 
+                        time.sleep(.05) 
                 
                         if cv2.waitKey(1) & 0xFF == ord('q'):
                             break
