@@ -5,7 +5,6 @@ This research has made use of the Spanish Virtual Observatory (https://svo.cab.i
 
 ![](UI.jpg)
 
----------------------------------------
 INSTALLATION:
 
 The voice recognition module requires the local model vosk-model-small-en-us-0.15.
