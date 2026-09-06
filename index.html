@@ -22,7 +22,7 @@
         #status { font-weight: bold; color: #a200ff; margin: 0 10px; font-size: 0.9rem; }
 
         /* Welcome Screen Overlay */
-        #welcome-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(17, 17, 17, 0); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; box-sizing: border-box; }
+        #welcome-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(17, 17, 17, 0.5); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; box-sizing: border-box; }
         #welcome-screen h1 { color: #a200ff; margin-bottom: 5px; font-size: 2rem; }
         #welcome-screen p.subtitle { color: #aaa; margin-bottom: 20px; font-size: 1rem; }
         
@@ -49,11 +49,17 @@
         <div class="controls-box">
             <strong>Key Controls Summary:</strong>
             <ul>
-                <li><strong>Right Arrow / Buttons:</strong> Start or continue sonification</li>
-                <li><strong>Left Arrow / Pause:</strong> Pause or Stop & Reset</li>
+                <li><strong>Simplified Voice Control:</strong> Say "start", "pause", or "stop" (Requires microphone access)</li>
+                <li><strong>Right Arrow:</strong> Start or continue sonification</li>
+                <li><strong>Left Arrow (Press / Double):</strong> Pause or Stop & Reset</li>
                 <li><strong>SHIFT + Right Arrow:</strong> Explore the object in SIMBAD</li>
                 <li><strong>+ / - Keys:</strong> ALADIN Zoom in or Zoom out</li>
-                <li><strong>Voice Control:</strong> Say "start", "pause", or "stop"</li>
+                <li><strong>SHIFT + (+ / -):</strong> Increase or reduce low threshold</li>
+                <li><strong>Up / Down Arrow:</strong> Choose top-wise or down-wise exploration</li>
+                <li><strong>Control Key:</strong> Slow down exploration (-25%) </li>
+                <li><strong>Command Key:</strong> Speed up exploration (+25%) </li>
+                <li><strong>Option / Alt Key:</strong> Reset exploration speed (Default speed)</li>
+  
             </ul>
         </div>
         <button id="start-prompt">Click here or press "space bar" to start SoniAladin</button>
@@ -173,7 +179,7 @@
         }
 
         document.getElementById('play-audio-btn').addEventListener('click', () => {
-            speakMessage("Welcome to SoniAladin. Exploring Aladin Sky Atlas through sound. Use touch buttons or voice control to start, pause, and stop sonification.");
+            speakMessage("Welcome to SoniAladin. Exploring Aladin Sky Atlas through sound. Use the keyboard or activate voice control to start, pause, and stop sonification. Key controls summary: Right Arrow to start or continue sonification. Left Arrow to pause or stop and reset. Shift plus Right Arrow to explore the object in SIMBAD. Plus and minus keys for zoom in or out. Up and down arrows to choose exploration direction. Control key to slow down. Command key to speed up. Option or Alt key to reset speed. Shift plus and minus to adjust the low threshold. Press space bar to start SoniAladin.");
         });
 
         function dismissWelcomeScreen() {
