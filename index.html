@@ -10,6 +10,11 @@
         #controls { display: flex; gap: 15px; padding: 8px 15px; background: rgba(34, 34, 34, 0.9); width: 100%; box-sizing: border-box; align-items: center; justify-content: center; border-bottom: 2px solid #444; z-index: 10; flex-wrap: wrap; }
         input { padding: 5px 8px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; }
         
+        #action-buttons { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        #action-buttons button { background: #333; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+        #action-buttons button:hover { background: #444; }
+        #voice-control-btn.active { background: #a200ff; border-color: #d175ff; }
+
         #map-container { position: relative; width: 100vw; flex-grow: 1; }
         #aladin-lite-div { width: 100%; height: 100%; }
         
@@ -17,7 +22,7 @@
         #status { font-weight: bold; color: #a200ff; margin: 0 10px; font-size: 0.9rem; }
 
         /* Welcome Screen Overlay */
-        #welcome-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(17, 17, 17, 0); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; box-sizing: border-box; }
+        #welcome-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(17, 17, 17, 0.96); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; box-sizing: border-box; }
         #welcome-screen h1 { color: #a200ff; margin-bottom: 5px; font-size: 2rem; }
         #welcome-screen p.subtitle { color: #aaa; margin-bottom: 20px; font-size: 1rem; }
         
@@ -44,15 +49,11 @@
         <div class="controls-box">
             <strong>Key Controls Summary:</strong>
             <ul>
-                <li><strong>Right Arrow:</strong> Start or continue sonification</li>
-                <li><strong>Left Arrow (Press / Double):</strong> Pause or Stop & Reset</li>
+                <li><strong>Right Arrow / Buttons:</strong> Start or continue sonification</li>
+                <li><strong>Left Arrow / Pause:</strong> Pause or Stop & Reset</li>
                 <li><strong>SHIFT + Right Arrow:</strong> Explore the object in SIMBAD</li>
                 <li><strong>+ / - Keys:</strong> ALADIN Zoom in or Zoom out</li>
-                <li><strong>SHIFT + (+ / -):</strong> Increase or reduce low threshold</li>
-                <li><strong>Up / Down Arrow:</strong> Choose top-wise or down-wise exploration</li>
-                <li><strong>Control Key:</strong> Slow down exploration (-25%) </li>
-                <li><strong>Command Key:</strong> Speed up exploration (+25%) </li>
-                <li><strong>Option / Alt Key:</strong> Reset exploration speed (Default speed)</li>
+                <li><strong>Voice Control:</strong> Say "start", "pause", or "stop"</li>
             </ul>
         </div>
         <button id="start-prompt">Click here or press "space bar" to start SoniAladin</button>
@@ -62,6 +63,12 @@
         <div>
             <label>Target: </label>
             <input type="text" id="targetInput" placeholder="NGC 619, alf ori, etc.">
+        </div>
+        <div id="action-buttons">
+            <button id="btn-start" onclick="handleTouchStart()">▶️ Start</button>
+            <button id="btn-pause" onclick="pauseSonification()">⏸️ Pause</button>
+            <button id="btn-stop" onclick="stopAndResetSonification(true)">⏹️ Stop</button>
+            <button id="voice-control-btn" onclick="toggleVoiceControl()">🎙️ Voice: OFF</button>
         </div>
         <div id="status">Status: Waiting to start...</div>
     </div>
@@ -83,10 +90,12 @@
         let reverberationNode = null;
         let leftArrowClickCount = 0;
         let leftArrowTimer = null;
-        let selectedFemaleVoice = "null";
+        let selectedFemaleVoice = null;
         let lastTriggerYMap = {}; 
         let currentTargetName = 'ngc 660';
         let welcomeActive = true;
+        let recognition = null;
+        let isVoiceControlActive = false;
 
         const high_threshold = 75;
         let low_threshold = 35;
@@ -164,7 +173,7 @@
         }
 
         document.getElementById('play-audio-btn').addEventListener('click', () => {
-            speakMessage("Welcome to SoniAladin. Exploring Aladin Sky Atlas through sound. Key controls summary: Right Arrow to start or continue sonification. Left Arrow to pause or stop and reset. Shift plus Right Arrow to explore the object in SIMBAD. Plus and minus keys for zoom in or out. Up and down arrows to choose exploration direction. Control key to slow down. Command key to speed up. Option or Alt key to reset speed. Shift plus and minus to adjust the low threshold. Press space bar to start SoniAladin.");
+            speakMessage("Welcome to SoniAladin. Exploring Aladin Sky Atlas through sound. Use touch buttons or voice control to start, pause, and stop sonification.");
         });
 
         function dismissWelcomeScreen() {
@@ -172,7 +181,7 @@
             document.getElementById('welcome-screen').style.display = 'none';
             initAudio();
             speakMessage("SoniAladin started");
-            document.getElementById('status').innerText = "Status: Ready. Press Right Arrow to Sonify or type the name of a new object.";
+            document.getElementById('status').innerText = "Status: Ready. Use buttons or voice control to begin.";
             targetInput.focus();
         }
 
@@ -182,6 +191,69 @@
                 e.preventDefault();
             }
         });
+
+        function handleTouchStart() {
+            if (!isSonifying && currentY > 0 && currentY < (document.getElementById('map-container').clientHeight || window.innerHeight)) {
+                speakMessage("Continuing Sonification");
+            }
+            startSonification();
+        }
+
+        function toggleVoiceControl() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("Speech recognition is not supported in this browser.");
+                return;
+            }
+
+            const btn = document.getElementById('voice-control-btn');
+
+            if (!isVoiceControlActive) {
+                recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+
+                recognition.onresult = (event) => {
+                    const lastResult = event.results[event.results.length - 1];
+                    const command = lastResult[0].transcript.trim().toLowerCase();
+                    document.getElementById('status').innerText = `Heard: "${command}"`;
+
+                    if (command.includes('start') || command.includes('play')) {
+                        speakMessage("Starting");
+                        handleTouchStart();
+                    } else if (command.includes('pause')) {
+                        pauseSonification();
+                    } else if (command.includes('stop') || command.includes('reset')) {
+                        stopAndResetSonification(true);
+                    }
+                };
+
+                recognition.onerror = (event) => {
+                    console.error("Speech recognition error", event.error);
+                };
+
+                recognition.onend = () => {
+                    if (isVoiceControlActive) {
+                        try { recognition.start(); } catch(e) {} 
+                    }
+                };
+
+                recognition.start();
+                isVoiceControlActive = true;
+                btn.classList.add('active');
+                btn.textContent = "🎙️ Voice: ON";
+                speakMessage("Voice control activated. Say start, pause, or stop.");
+            } else {
+                if (recognition) {
+                    recognition.stop();
+                }
+                isVoiceControlActive = false;
+                btn.classList.remove('active');
+                btn.textContent = "🎙️ Voice: OFF";
+                speakMessage("Voice control deactivated");
+            }
+        }
 
         function playTone(freq, type = 'piano', duration = 0.1, pan = 0) {
             initAudio();
@@ -372,7 +444,7 @@
                     currentTargetName = targetName;
                     aladin.gotoObject(targetName);
                     stopAndResetSonification(false);
-                    document.getElementById('status').innerText = `Status: Navigated to ${targetName}. Press Right Arrow to Sonify.`;
+                    document.getElementById('status').innerText = `Status: Navigated to ${targetName}.`;
                     targetInput.value = ''; 
                 }
                 e.preventDefault();
@@ -487,7 +559,7 @@
             isSonifying = false;
             if (scanInterval) clearTimeout(scanInterval);
             speakMessage("Sonification paused");
-            document.getElementById('status').innerText = "Status: Paused. Press Right Arrow or Up/Down Arrow to continue.";
+            document.getElementById('status').innerText = "Status: Paused. Press Start or say 'start' to continue.";
         }
 
         function stopAndResetSonification(speakStopped = true) {
@@ -504,7 +576,7 @@
             if (speakStopped) {
                 speakMessage("Sonification stopped");
             }
-            document.getElementById('status').innerText = "Status: Stopped & Reset to Top. Press Right Arrow to Sonify.";
+            document.getElementById('status').innerText = "Status: Stopped & Reset to Top. Ready.";
         }
     </script>
 </body>
