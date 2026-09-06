@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SoniAladin Web - Fullscreen</title>
+    <script type="text/javascript" src="https://aladin.cds.unistra.fr/AladinLite/api/v3/latest/aladin.js" charset="utf-8"></script>
+    <style>
+        body { margin: 0; background: #111; color: #eee; font-family: sans-serif; overflow: hidden; width: 100vw; height: 100vh; display: flex; flex-direction: column; }
+        
+        #controls { display: flex; gap: 15px; padding: 8px 15px; background: rgba(34, 34, 34, 0.9); width: 100%; box-sizing: border-box; align-items: center; justify-content: center; border-bottom: 2px solid #444; z-index: 10; flex-wrap: wrap; }
+        input { padding: 5px 8px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; }
+        
+        #map-container { position: relative; width: 100vw; flex-grow: 1; }
+        #aladin-lite-div { width: 100%; height: 100%; }
+        
+        #scan-line { position: absolute; left: 0; top: 0px; width: 100vw; height: 2px; background-color: rgba(140, 0, 255, 0.7); box-shadow: 0 0 4px rgb(140, 0, 255); pointer-events: none; display: none; z-index: 5; }
+        #status { font-weight: bold; color: #a200ff; margin: 0 10px; font-size: 0.9rem; }
+
+        /* Welcome Screen Overlay */
+        #welcome-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(17, 17, 17, 0); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 20px; box-sizing: border-box; }
+        #welcome-screen h1 { color: #a200ff; margin-bottom: 5px; font-size: 2rem; }
+        #welcome-screen p.subtitle { color: #aaa; margin-bottom: 20px; font-size: 1rem; }
+        
+        #play-audio-btn { background: #333; color: #fff; border: 1px solid #555; padding: 8px 16px; border-radius: 4px; margin-bottom: 20px; cursor: pointer; font-size: 0.9rem; }
+        #play-audio-btn:hover { background: #444; }
+
+        .controls-box { background: #222; border: 1px solid #444; padding: 20px; border-radius: 8px; margin-bottom: 25px; max-width: 580px; text-align: left; font-size: 0.9rem; line-height: 1.6; }
+        .controls-box ul { margin: 0; padding-left: 20px; }
+        .controls-box li { margin-bottom: 6px; }
+        
+        #start-prompt { cursor: pointer; font-family: inherit; font-size: 1.2rem; color: #fff; font-weight: bold; background: rgba(166, 0, 255, 0.2); border: 2px solid #a200ff; padding: 12px 24px; border-radius: 6px; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; transform: scale(1.02); } 100% { opacity: 0.8; } }
+    </style>
+</head>
+<body>
+
+    <!-- Welcome Screen Overlay -->
+    <div id="welcome-screen">
+        <h1>SoniAladin</h1>
+        <p class="subtitle">Exploring Aladin Sky Atlas through sound</p>
+        
+        <button id="play-audio-btn">🔊 Play Audio Instructions</button>
+
+        <div class="controls-box">
+            <strong>Key Controls Summary:</strong>
+            <ul>
+                <li><strong>Right Arrow:</strong> Start or continue sonification</li>
+                <li><strong>Left Arrow (Press / Double):</strong> Pause or Stop & Reset</li>
+                <li><strong>SHIFT + Right Arrow:</strong> Explore the object in SIMBAD</li>
+                <li><strong>+ / - Keys:</strong> ALADIN Zoom in or Zoom out</li>
+                <li><strong>SHIFT + (+ / -):</strong> Increase or reduce low threshold</li>
+                <li><strong>Up / Down Arrow:</strong> Choose top-wise or down-wise exploration</li>
+                <li><strong>Control Key:</strong> Slow down exploration (-25%) </li>
+                <li><strong>Command Key:</strong> Speed up exploration (+25%) </li>
+                <li><strong>Option / Alt Key:</strong> Reset exploration speed (Default speed)</li>
+            </ul>
+        </div>
+        <button id="start-prompt">Click here or press "space bar" to start SoniAladin</button>
+    </div>
+
+    <div id="controls">
+        <div>
+            <label>Target: </label>
+            <input type="text" id="targetInput" placeholder="NGC 619, alf ori, etc.">
+        </div>
+        <div id="status">Status: Waiting to start...</div>
+    </div>
+
+    <div id="map-container">
+        <div id="aladin-lite-div"></div>
+        <div id="scan-line"></div>
+    </div>
+
+    <script>
+        let aladin;
+        let audioCtx = null;
+        let isSonifying = false;
+        let scanInterval;
+        let speedMultiplier = 0.8; 
+        const BASE_DELAY = 50;     
+        let scanDirection = 1; 
+        let currentY = 0;
+        let reverberationNode = null;
+        let leftArrowClickCount = 0;
+        let leftArrowTimer = null;
+        let selectedFemaleVoice = "null";
+        let lastTriggerYMap = {}; 
+        let currentTargetName = 'ngc 660';
+        let welcomeActive = true;
+
+        const high_threshold = 75;
+        let low_threshold = 35;
+        const resolution = 4;
+        const verticalCooldown = 16; 
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+
+                try {
+                    reverberationNode = audioCtx.createConvolver();
+                    const rate = audioCtx.sampleRate;
+                    const length = rate * 1.2;
+                    const impulse = audioCtx.createBuffer(2, length, rate);
+                    const left = impulse.getChannelData(0);
+                    const right = impulse.getChannelData(1);
+
+                    for (let i = 0; i < length; i++) {
+                        const decay = Math.exp(-i / (rate * 0.25));
+                        left[i] = (Math.random() * 2 - 1) * decay;
+                        right[i] = (Math.random() * 2 - 1) * decay;
+                    }
+
+                    reverberationNode.buffer = impulse;
+                    
+                    const wetGain = audioCtx.createGain();
+                    wetGain.gain.value = 1.8;
+                    reverberationNode.connect(wetGain);
+                    wetGain.connect(audioCtx.destination);
+                } catch (e) {
+                    console.error("Reverb initialization error:", e);
+                }
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function loadVoices() {
+            if ('speechSynthesis' in window) {
+                const voices = window.speechSynthesis.getVoices();
+                selectedFemaleVoice = voices.find(v => 
+                    v.name.toLowerCase().includes('female') || 
+                    v.name.toLowerCase().includes('samantha') || 
+                    v.name.toLowerCase().includes('victoria') || 
+                    v.name.toLowerCase().includes('karen') || 
+                    v.name.toLowerCase().includes('zira') || 
+                    v.name.toLowerCase().includes('google uk english female') ||
+                    v.name.toLowerCase().includes('google us english female')
+                ) || voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural'))) || voices[0];
+            }
+        }
+
+        if ('speechSynthesis' in window) {
+            loadVoices();
+            if (window.speechSynthesis.onvoiceschanged !== undefined) {
+                window.speechSynthesis.onvoiceschanged = loadVoices;
+            }
+        }
+
+        function speakMessage(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                if (selectedFemaleVoice) {
+                    utterance.voice = selectedFemaleVoice;
+                }
+                utterance.rate = 1.0;
+                utterance.pitch = 1.1; 
+                utterance.volume = 0.5;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        document.getElementById('play-audio-btn').addEventListener('click', () => {
+            speakMessage("Welcome to SoniAladin. Exploring Aladin Sky Atlas through sound. Key controls summary: Right Arrow to start or continue sonification. Left Arrow to pause or stop and reset. Shift plus Right Arrow to explore the object in SIMBAD. Plus and minus keys for zoom in or out. Up and down arrows to choose exploration direction. Control key to slow down. Command key to speed up. Option or Alt key to reset speed. Shift plus and minus to adjust the low threshold. Press space bar to start SoniAladin.");
+        });
+
+        function dismissWelcomeScreen() {
+            welcomeActive = false;
+            document.getElementById('welcome-screen').style.display = 'none';
+            initAudio();
+            speakMessage("SoniAladin started");
+            document.getElementById('status').innerText = "Status: Ready. Press Right Arrow to Sonify or type the name of a new object.";
+            targetInput.focus();
+        }
+
+        document.getElementById('start-prompt').addEventListener('click', (e) => {
+            if (welcomeActive) {
+                dismissWelcomeScreen();
+                e.preventDefault();
+            }
+        });
+
+        function playTone(freq, type = 'piano', duration = 0.1, pan = 0) {
+            initAudio();
+            if (!audioCtx) return;
+            try {
+                const now = audioCtx.currentTime;
+                let masterGain = audioCtx.createGain();
+                
+                let panner = null;
+                if (audioCtx.createStereoPanner) {
+                    panner = audioCtx.createStereoPanner();
+                    panner.pan.setValueAtTime(Math.max(-1, Math.min(1, pan)), now);
+                    masterGain.connect(panner);
+                    panner.connect(audioCtx.destination);
+                    if (reverberationNode) {
+                        panner.connect(reverberationNode);
+                    }
+                } else {
+                    masterGain.connect(audioCtx.destination);
+                    if (reverberationNode) {
+                        masterGain.connect(reverberationNode);
+                    }
+                }
+
+                if (type === 'piano') {
+                    masterGain.gain.setValueAtTime(0.0001, now);
+                    masterGain.gain.linearRampToValueAtTime(0.06, now + 0.005);
+                    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + duration * 1.5);
+
+                    [1, 2, 3].forEach((harmonic, index) => {
+                        let osc = audioCtx.createOscillator();
+                        let harmonicGain = audioCtx.createGain();
+                        osc.type = index === 0 ? 'triangle' : 'sine';
+                        osc.frequency.setValueAtTime(freq * harmonic, now);
+                        harmonicGain.gain.setValueAtTime(1 / (index + 1), now);
+                        
+                        osc.connect(harmonicGain);
+                        harmonicGain.connect(masterGain);
+                        osc.start(now);
+                        osc.stop(now + duration * 1.5);
+                    });
+                } else if (type === 'violin') {
+                    masterGain.gain.setValueAtTime(0.0001, now);
+                    masterGain.gain.linearRampToValueAtTime(0.02, now + 0.03);
+                    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + duration * 1.8);
+
+                    let osc = audioCtx.createOscillator();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, now);
+
+                    let vibrato = audioCtx.createOscillator();
+                    let vibratoGain = audioCtx.createGain();
+                    vibrato.frequency.setValueAtTime(5, now);
+                    vibratoGain.gain.setValueAtTime(4, now);
+                    vibrato.connect(vibratoGain);
+                    vibratoGain.connect(osc.frequency);
+
+                    osc.connect(masterGain);
+                    vibrato.start(now);
+                    osc.start(now);
+                    vibrato.stop(now + duration * 1.8);
+                    osc.stop(now + duration * 1.8);
+                }
+            } catch (e) {
+                console.error("Audio error:", e);
+            }
+        }
+
+        if (typeof A !== 'undefined') {
+            A.init.then(() => {
+                aladin = A.aladin('#aladin-lite-div', {
+                    target: currentTargetName, 
+                    fov: 0.30, 
+                    survey: 'P/DSS2/color'
+                });
+            });
+        } else {
+            document.getElementById('status').innerText = "Error: Aladin script failed to load from CDN.";
+        }
+
+        const targetInput = document.getElementById('targetInput');
+
+        document.addEventListener('click', () => {
+            if (!welcomeActive && document.activeElement !== targetInput) {
+                targetInput.focus();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (welcomeActive) {
+                if (e.key === ' ' || e.code === 'Space') {
+                    dismissWelcomeScreen();
+                    e.preventDefault();
+                }
+                return; 
+            }
+
+            if (e.key === 'Control') {
+                speedMultiplier *= 1.25; 
+                speakMessage("Slowing down");
+                document.getElementById('status').innerText = `Speed: Slowing down (x${(1/speedMultiplier).toFixed(2)})`;
+                e.preventDefault();
+            } else if (e.key === 'Alt' || e.key === 'Option') {
+                speedMultiplier = 1.0; 
+                speakMessage("Default speed");
+                document.getElementById('status').innerText = "Speed: Default (x1.00)";
+                e.preventDefault();
+            } else if (e.key === 'Meta') {
+                speedMultiplier *= 0.75; 
+                speakMessage("Speeding up");
+                document.getElementById('status').innerText = `Speed: Speeding up (x${(1/speedMultiplier).toFixed(2)})`;
+                e.preventDefault();
+            } else if (e.shiftKey && (e.key === '+' || e.key === '*' || e.key === 'Add')) {
+                low_threshold = Math.min(high_threshold - 5, low_threshold + 5);
+                speakMessage("Increasing threshold");
+                document.getElementById('status').innerText = `Status: Low threshold increased to ${low_threshold}`;
+                e.preventDefault();
+            } else if (e.shiftKey && (e.key === '-' || e.key === '_' || e.key === 'Subtract')) {
+                low_threshold = Math.max(0, low_threshold - 5);
+                speakMessage("Reducing threshold");
+                document.getElementById('status').innerText = `Status: Low threshold reduced to ${low_threshold}`;
+                e.preventDefault();
+            } else if (e.key === '+' || e.key === '*' || e.key === 'Add') {
+                if (aladin) {
+                    let fov = aladin.getFov();
+                    let currentFov = Array.isArray(fov) ? fov[0] : (typeof fov === 'number' ? fov : 0.5);
+                    aladin.setFoV(currentFov * 0.75);
+                    speakMessage("Zoom in");
+                    document.getElementById('status').innerText = "Status: Zoomed In";
+                }
+                e.preventDefault();
+            } else if (e.key === '-' || e.key === '_' || e.key === 'Subtract') {
+                if (aladin) {
+                    let fov = aladin.getFov();
+                    let currentFov = Array.isArray(fov) ? fov[0] : (typeof fov === 'number' ? fov : 0.5);
+                    aladin.setFoV(currentFov * 1.33);
+                    speakMessage("Zoom out");
+                    document.getElementById('status').innerText = "Status: Zoomed Out";
+                }
+                e.preventDefault();
+            } else if (e.key === 'ArrowDown') {
+                scanDirection = 1;
+                speakMessage("down-wise exploration");
+                document.getElementById('status').innerText = "Status: Down-wise exploration...";
+                if (!isSonifying) {
+                    startSonification();
+                }
+                e.preventDefault();
+            } else if (e.key === 'ArrowUp') {
+                scanDirection = -1;
+                speakMessage("top-wise exploration");
+                document.getElementById('status').innerText = "Status: Top-wise exploration...";
+                if (!isSonifying) {
+                    startSonification();
+                }
+                e.preventDefault();
+            } else if (e.key === 'ArrowRight') {
+                if (e.shiftKey) {
+                    let simbadUrl = `https://simbad.u-strasbg.fr/simbad/sim-id?Ident=${encodeURIComponent(currentTargetName)}`;
+                    window.open(simbadUrl, '_blank');
+                    speakMessage(`Exploring ${currentTargetName} in simbad`);
+                    document.getElementById('status').innerText = `Status: Opened SIMBAD search for ${currentTargetName}`;
+                } else {
+                    if (!isSonifying && currentY > 0 && currentY < (document.getElementById('map-container').clientHeight || window.innerHeight)) {
+                        speakMessage("Continuing Sonification");
+                    }
+                    startSonification();
+                }
+                e.preventDefault();
+            } else if (e.key === 'ArrowLeft') {
+                leftArrowClickCount++;
+                if (leftArrowClickCount === 1) {
+                    leftArrowTimer = setTimeout(() => {
+                        if (leftArrowClickCount === 1) {
+                            pauseSonification();
+                        }
+                        leftArrowClickCount = 0;
+                    }, 300); 
+                } else if (leftArrowClickCount === 2) {
+                    clearTimeout(leftArrowTimer);
+                    stopAndResetSonification(true);
+                    leftArrowClickCount = 0;
+                }
+                e.preventDefault();
+            } else if (e.key === 'Enter' && document.activeElement === targetInput) {
+                const targetName = targetInput.value.trim();
+                if (targetName && aladin) {
+                    currentTargetName = targetName;
+                    aladin.gotoObject(targetName);
+                    stopAndResetSonification(false);
+                    document.getElementById('status').innerText = `Status: Navigated to ${targetName}. Press Right Arrow to Sonify.`;
+                    targetInput.value = ''; 
+                }
+                e.preventDefault();
+            }
+        });
+
+        function getScanIntervalDelay() {
+            return Math.max(10, BASE_DELAY * speedMultiplier);
+        }
+
+        function startSonification() {
+            if (isSonifying) return;
+            
+            const container = document.getElementById('map-container');
+            const height = container.clientHeight || window.innerHeight;
+            const width = container.clientWidth || window.innerWidth;
+
+            let isResuming = (currentY > 0 && currentY < height);
+
+            if (currentY >= height || currentY < 0) {
+                currentY = scanDirection === 1 ? 0 : Math.floor((height - 1) / resolution) * resolution;
+                isResuming = false;
+                lastTriggerYMap = {}; 
+            }
+
+            initAudio();
+            document.getElementById('status').innerText = "Status: Scanning & Sonifying...";
+            
+            if (isResuming) {
+                speakMessage("Continuing Sonification");
+            } else {
+                speakMessage("Sonification started");
+            }
+
+            setTimeout(() => {
+                isSonifying = true;
+
+                const scanLine = document.getElementById('scan-line');
+                scanLine.style.display = 'block';
+
+                const oneThirdMark = Math.floor(height / 3);
+                const twoThirdMark = Math.floor((height * 2) / 3);
+
+                function runScanStep() {
+                    if (!isSonifying) return;
+                    
+                    if (currentY >= height || currentY < 0) {
+                        speakMessage("Sonification finished");
+                        stopAndResetSonification(false);
+                        return;
+                    }
+
+                    let processY = currentY; 
+                    scanLine.style.top = processY + 'px';
+
+                    let nextY = processY + (scanDirection * resolution);
+                    if (scanDirection === 1) {
+                        if (processY < oneThirdMark && nextY >= oneThirdMark) speakMessage("One third");
+                        if (processY < twoThirdMark && nextY >= twoThirdMark) speakMessage("Two thirds");
+                    } else {
+                        if (processY > twoThirdMark && nextY <= twoThirdMark) speakMessage("Two thirds");
+                        if (processY > oneThirdMark && nextY <= oneThirdMark) speakMessage("One third");
+                    }
+
+                    let baseLayer = aladin ? aladin.getBaseImageLayer() : null;
+                    let isFirstStepOfScan = Object.keys(lastTriggerYMap).length === 0;
+
+                    for (let x = 0; x < width; x += resolution) {
+                        let brightness = 50; 
+                        if (baseLayer && typeof baseLayer.readPixel === 'function') {
+                            let pix = baseLayer.readPixel(x, processY); 
+                            if (pix !== null && pix !== undefined) {
+                                if (Array.isArray(pix)) {
+                                    brightness = 0.299 * pix[0] + 0.587 * pix[1] + 0.114 * pix[2];
+                                } else {
+                                    brightness = Number(pix);
+                                }
+                            }
+                        } else {
+                            brightness = (Math.sin(x / 30) + 1) * 35 + (Math.random() * 20);
+                        }
+
+                        let positionalFreq = 150 + (x / width) * 1050;
+                        let panValue = (x / width) * 2 - 1; 
+                        let xBucket = Math.floor(x / 12); 
+
+                        if (isFirstStepOfScan) {
+                            lastTriggerYMap[xBucket] = processY;
+                        } else {
+                            if (brightness >= high_threshold) {
+                                let lastY = lastTriggerYMap[xBucket] !== undefined ? lastTriggerYMap[xBucket] : -999;
+                                
+                                if (Math.abs(processY - lastY) > verticalCooldown) {
+                                    playTone(positionalFreq, 'piano', 0.08, panValue);
+                                    lastTriggerYMap[xBucket] = processY; 
+                                }
+                            } else if (brightness >= low_threshold && brightness <= high_threshold) {
+                                playTone(positionalFreq, 'violin', 0.08, panValue);
+                            }
+                        }
+                    }
+
+                    currentY = nextY;
+                    scanInterval = setTimeout(runScanStep, getScanIntervalDelay());
+                }
+
+                runScanStep();
+            }, 500);
+        }
+
+        function pauseSonification() {
+            isSonifying = false;
+            if (scanInterval) clearTimeout(scanInterval);
+            speakMessage("Sonification paused");
+            document.getElementById('status').innerText = "Status: Paused. Press Right Arrow or Up/Down Arrow to continue.";
+        }
+
+        function stopAndResetSonification(speakStopped = true) {
+            isSonifying = false;
+            if (scanInterval) clearTimeout(scanInterval);
+            currentY = 0;
+            scanDirection = 1;
+            lastTriggerYMap = {};
+            const scanLine = document.getElementById('scan-line');
+            if (scanLine) {
+                scanLine.style.display = 'none';
+                scanLine.style.top = '0px';
+            }
+            if (speakStopped) {
+                speakMessage("Sonification stopped");
+            }
+            document.getElementById('status').innerText = "Status: Stopped & Reset to Top. Press Right Arrow to Sonify.";
+        }
+    </script>
+</body>
+</html>
