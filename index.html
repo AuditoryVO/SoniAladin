@@ -12,7 +12,7 @@
         
         #action-buttons { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
         #action-buttons button { background: #333; color: #fff; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
-        #action-buttons button:hover { background: #7e10b1; }
+        #action-buttons button:hover { background: #444; }
         #voice-control-btn.active { background: #a200ff; border-color: #d175ff; }
 
         #map-container { position: relative; width: 100vw; flex-grow: 1; }
@@ -44,7 +44,7 @@
         <h1>SoniAladin</h1>
         <p class="subtitle">Exploring Aladin Sky Atlas through sound</p>
         
-        <button id="play-audio-btn">Play Audio Instructions</button>
+        <button id="play-audio-btn">🔊 Play Audio Instructions</button>
 
         <div class="controls-box">
             <strong>Key Controls Summary:</strong>
@@ -70,10 +70,10 @@
             <input type="text" id="targetInput" placeholder="NGC 619, alf ori, etc.">
         </div>
         <div id="action-buttons">
-            <button id="btn-start" onclick="handleTouchStart()">Start</button>
-            <button id="btn-pause" onclick="pauseSonification()">Pause</button>
-            <button id="btn-stop" onclick="stopAndResetSonification(true)">Stop</button>
-            <button id="voice-control-btn" onclick="toggleVoiceControl()">Voice: OFF</button>
+            <button id="btn-start" onclick="handleTouchStart()">▶️ Start</button>
+            <button id="btn-pause" onclick="pauseSonification()">⏸️ Pause</button>
+            <button id="btn-stop" onclick="stopAndResetSonification(true)">⏹️ Stop</button>
+            <button id="voice-control-btn" onclick="toggleVoiceControl()">🎙️ Voice: OFF</button>
         </div>
         <div id="status">Status: Waiting to start...</div>
     </div>
@@ -96,18 +96,16 @@
         let leftArrowClickCount = 0;
         let leftArrowTimer = null;
         let selectedFemaleVoice = null;
-        let lastPianoYMap = {}; 
-        let lastViolinYMap = {}; 
+        let lastTriggerYMap = {}; 
         let currentTargetName = 'ngc 660';
         let welcomeActive = true;
         let recognition = null;
         let isVoiceControlActive = false;
 
-        const high_threshold = 100;
-        let low_threshold = 40;
+        const high_threshold = 75;
+        let low_threshold = 35;
         const resolution = 4;
-        const verticalCooldown = 4; 
-        const BOUNDARY_MARGIN = 12; 
+        const verticalCooldown = 16; 
 
         function initAudio() {
             if (!audioCtx) {
@@ -180,14 +178,13 @@
         }
 
         document.getElementById('play-audio-btn').addEventListener('click', () => {
-            initAudio(); // Unlock audio on user interaction
             speakMessage("Welcome to SoniAladin. Exploring Aladin Sky Atlas through sound. Use the keyboard or activate voice control to start, pause, and stop sonification. Key controls summary: Right Arrow to start or continue sonification. Left Arrow to pause or stop and reset. Shift plus Right Arrow to explore the object in SIMBAD. Plus and minus keys for zoom in or out. Up and down arrows to choose exploration direction. Control key to slow down. Command key to speed up. Option or Alt key to reset speed. Shift plus and minus to adjust the low threshold. Press space bar to start SoniAladin.");
         });
 
         function dismissWelcomeScreen() {
-            initAudio(); // Immediately initialize & unlock audio context synchronously
             welcomeActive = false;
             document.getElementById('welcome-screen').style.display = 'none';
+            initAudio();
             speakMessage("SoniAladin started");
             document.getElementById('status').innerText = "Status: Ready. Use buttons or voice control to begin.";
             targetInput.focus();
@@ -201,15 +198,13 @@
         });
 
         function handleTouchStart() {
-            initAudio(); // Ensure audio context is unlocked right away on mobile touch
-            if (!isSonifying && currentY > BOUNDARY_MARGIN && currentY < (document.getElementById('map-container').clientHeight || window.innerHeight) - BOUNDARY_MARGIN) {
+            if (!isSonifying && currentY > 0 && currentY < (document.getElementById('map-container').clientHeight || window.innerHeight)) {
                 speakMessage("Continuing Sonification");
             }
             startSonification();
         }
 
         function toggleVoiceControl() {
-            initAudio(); // Unlock audio context
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) {
                 alert("Speech recognition is not supported in this browser.");
@@ -265,13 +260,12 @@
             }
         }
 
-        function playTone(freq, type = 'piano', duration = 0.1, pan = 0, brightness = 255) {
+        function playTone(freq, type = 'piano', duration = 0.1, pan = 0) {
             initAudio();
             if (!audioCtx) return;
             try {
                 const now = audioCtx.currentTime;
                 let masterGain = audioCtx.createGain();
-                let volScale = Math.max(0, Math.min(1, brightness / 255));
                 
                 let panner = null;
                 if (audioCtx.createStereoPanner) {
@@ -290,42 +284,26 @@
                 }
 
                 if (type === 'piano') {
-                    masterGain.gain.setValueAtTime(0.001, now);
-                    masterGain.gain.linearRampToValueAtTime(0.15 * volScale, now + 0.005);
-                    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + duration * 3.5);
+                    masterGain.gain.setValueAtTime(0.0001, now);
+                    masterGain.gain.linearRampToValueAtTime(0.06, now + 0.005);
+                    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + duration * 1.5);
 
-                    let filter = audioCtx.createBiquadFilter();
-                    filter.type = 'lowpass';
-                    filter.frequency.setValueAtTime(freq * 5, now);
-                    filter.frequency.exponentialRampToValueAtTime(freq, now + duration * 2.0);
-                    filter.connect(masterGain);
-
-                    [1, 2, 3, 4].forEach((harmonic, index) => {
+                    [1, 2, 3].forEach((harmonic, index) => {
                         let osc = audioCtx.createOscillator();
                         let harmonicGain = audioCtx.createGain();
                         osc.type = index === 0 ? 'triangle' : 'sine';
-                        
-                        let freqMultiplier = harmonic + (harmonic * harmonic * 0.0002);
-                        osc.frequency.setValueAtTime(freq * freqMultiplier, now);
-                        
-                        harmonicGain.gain.setValueAtTime((1 / Math.pow(index + 1, 1.4)), now);
+                        osc.frequency.setValueAtTime(freq * harmonic, now);
+                        harmonicGain.gain.setValueAtTime(1 / (index + 1), now);
                         
                         osc.connect(harmonicGain);
-                        harmonicGain.connect(filter);
+                        harmonicGain.connect(masterGain);
                         osc.start(now);
-                        osc.stop(now + duration * 3.5);
+                        osc.stop(now + duration * 1.5);
                     });
-
                 } else if (type === 'violin') {
-                    masterGain.gain.setValueAtTime(0.001, now);
-                    masterGain.gain.linearRampToValueAtTime(0.08 * volScale, now + 0.08); 
-                    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + duration * 2.5);
-
-                    let filter = audioCtx.createBiquadFilter();
-                    filter.type = 'bandpass';
-                    filter.frequency.setValueAtTime(freq * 1.5, now);
-                    filter.Q.value = 1.2;
-                    filter.connect(masterGain);
+                    masterGain.gain.setValueAtTime(0.0001, now);
+                    masterGain.gain.linearRampToValueAtTime(0.02, now + 0.03);
+                    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + duration * 1.8);
 
                     let osc = audioCtx.createOscillator();
                     osc.type = 'sawtooth';
@@ -333,24 +311,16 @@
 
                     let vibrato = audioCtx.createOscillator();
                     let vibratoGain = audioCtx.createGain();
-                    vibrato.frequency.setValueAtTime(5.5, now);
-                    vibratoGain.gain.setValueAtTime(0, now); 
-                    vibratoGain.gain.linearRampToValueAtTime(freq * 0.015, now + 0.15); 
-
+                    vibrato.frequency.setValueAtTime(5, now);
+                    vibratoGain.gain.setValueAtTime(4, now);
                     vibrato.connect(vibratoGain);
                     vibratoGain.connect(osc.frequency);
 
-                    osc.connect(filter);
-                    
-                    let dryGain = audioCtx.createGain();
-                    dryGain.gain.value = 0.6;
-                    osc.connect(dryGain);
-                    dryGain.connect(masterGain);
-
+                    osc.connect(masterGain);
                     vibrato.start(now);
                     osc.start(now);
-                    vibrato.stop(now + duration * 2.5);
-                    osc.stop(now + duration * 2.5);
+                    vibrato.stop(now + duration * 1.8);
+                    osc.stop(now + duration * 1.8);
                 }
             } catch (e) {
                 console.error("Audio error:", e);
@@ -402,13 +372,13 @@
                 document.getElementById('status').innerText = `Speed: Speeding up (x${(1/speedMultiplier).toFixed(2)})`;
                 e.preventDefault();
             } else if (e.shiftKey && (e.key === '+' || e.key === '*' || e.key === 'Add')) {
-                low_threshold = Math.min(high_threshold, low_threshold + 5);
-                speakMessage(`Threshold increased to ${low_threshold}`);
+                low_threshold = Math.min(high_threshold - 5, low_threshold + 5);
+                speakMessage("Increasing threshold");
                 document.getElementById('status').innerText = `Status: Low threshold increased to ${low_threshold}`;
                 e.preventDefault();
             } else if (e.shiftKey && (e.key === '-' || e.key === '_' || e.key === 'Subtract')) {
                 low_threshold = Math.max(0, low_threshold - 5);
-                speakMessage(`Threshold decreased to ${low_threshold}`);
+                speakMessage("Reducing threshold");
                 document.getElementById('status').innerText = `Status: Low threshold reduced to ${low_threshold}`;
                 e.preventDefault();
             } else if (e.key === '+' || e.key === '*' || e.key === 'Add') {
@@ -431,8 +401,6 @@
                 e.preventDefault();
             } else if (e.key === 'ArrowDown') {
                 scanDirection = 1;
-                lastPianoYMap = {};
-                lastViolinYMap = {};
                 speakMessage("down-wise exploration");
                 document.getElementById('status').innerText = "Status: Down-wise exploration...";
                 if (!isSonifying) {
@@ -441,8 +409,6 @@
                 e.preventDefault();
             } else if (e.key === 'ArrowUp') {
                 scanDirection = -1;
-                lastPianoYMap = {};
-                lastViolinYMap = {};
                 speakMessage("top-wise exploration");
                 document.getElementById('status').innerText = "Status: Top-wise exploration...";
                 if (!isSonifying) {
@@ -456,7 +422,10 @@
                     speakMessage(`Exploring ${currentTargetName} in simbad`);
                     document.getElementById('status').innerText = `Status: Opened SIMBAD search for ${currentTargetName}`;
                 } else {
-                    handleTouchStart();
+                    if (!isSonifying && currentY > 0 && currentY < (document.getElementById('map-container').clientHeight || window.innerHeight)) {
+                        speakMessage("Continuing Sonification");
+                    }
+                    startSonification();
                 }
                 e.preventDefault();
             } else if (e.key === 'ArrowLeft') {
@@ -494,99 +463,101 @@
         function startSonification() {
             if (isSonifying) return;
             
-            initAudio(); // Force audio context resume on start trigger
-
             const container = document.getElementById('map-container');
             const height = container.clientHeight || window.innerHeight;
             const width = container.clientWidth || window.innerWidth;
 
-            const topBound = BOUNDARY_MARGIN;
-            const bottomBound = Math.floor((height - BOUNDARY_MARGIN) / resolution) * resolution;
+            let isResuming = (currentY > 0 && currentY < height);
 
-            let isResuming = (currentY >= topBound && currentY <= bottomBound);
-
-            if (!isResuming) {
-                currentY = scanDirection === 1 ? topBound : bottomBound;
-                lastPianoYMap = {}; 
-                lastViolinYMap = {};
+            if (currentY >= height || currentY < 0) {
+                currentY = scanDirection === 1 ? 0 : Math.floor((height - 1) / resolution) * resolution;
+                isResuming = false;
+                lastTriggerYMap = {}; 
             }
 
+            initAudio();
             document.getElementById('status').innerText = "Status: Scanning & Sonifying...";
             
-            if (isResuming && currentY > topBound && currentY < bottomBound) {
+            if (isResuming) {
                 speakMessage("Continuing Sonification");
             } else {
                 speakMessage("Sonification started");
             }
 
-            isSonifying = true;
-            const scanLine = document.getElementById('scan-line');
-            scanLine.style.display = 'block';
+            setTimeout(() => {
+                isSonifying = true;
 
-            const oneThirdMark = Math.floor(height / 3);
-            const twoThirdMark = Math.floor((height * 2) / 3);
+                const scanLine = document.getElementById('scan-line');
+                scanLine.style.display = 'block';
 
-            function runScanStep() {
-                if (!isSonifying) return;
-                
-                if (currentY > bottomBound || currentY < topBound) {
-                    speakMessage("Sonification finished");
-                    stopAndResetSonification(false);
-                    return;
-                }
+                const oneThirdMark = Math.floor(height / 3);
+                const twoThirdMark = Math.floor((height * 2) / 3);
 
-                let processY = currentY; 
-                scanLine.style.top = processY + 'px';
-
-                let nextY = processY + (scanDirection * resolution);
-                if (scanDirection === 1) {
-                    if (processY < oneThirdMark && nextY >= oneThirdMark) speakMessage("One third");
-                    if (processY < twoThirdMark && nextY >= twoThirdMark) speakMessage("Two thirds");
-                } else {
-                    if (processY > twoThirdMark && nextY <= twoThirdMark) speakMessage("Two thirds");
-                    if (processY > oneThirdMark && nextY <= oneThirdMark) speakMessage("One third");
-                }
-
-                let baseLayer = aladin ? aladin.getBaseImageLayer() : null;
-
-                for (let x = BOUNDARY_MARGIN; x < width - BOUNDARY_MARGIN; x += resolution) {
-                    let brightness = 0; 
+                function runScanStep() {
+                    if (!isSonifying) return;
                     
-                    if (baseLayer && typeof baseLayer.readPixel === 'function') {
-                        let pix = baseLayer.readPixel(x, processY); 
-                        if (pix !== null && pix !== undefined) {
-                            if (Array.isArray(pix)) {
-                                brightness = 0.299 * pix[0] + 0.587 * pix[1] + 0.114 * pix[2];
-                            } else {
-                                brightness = Number(pix);
+                    if (currentY >= height || currentY < 0) {
+                        speakMessage("Sonification finished");
+                        stopAndResetSonification(false);
+                        return;
+                    }
+
+                    let processY = currentY; 
+                    scanLine.style.top = processY + 'px';
+
+                    let nextY = processY + (scanDirection * resolution);
+                    if (scanDirection === 1) {
+                        if (processY < oneThirdMark && nextY >= oneThirdMark) speakMessage("One third");
+                        if (processY < twoThirdMark && nextY >= twoThirdMark) speakMessage("Two thirds");
+                    } else {
+                        if (processY > twoThirdMark && nextY <= twoThirdMark) speakMessage("Two thirds");
+                        if (processY > oneThirdMark && nextY <= oneThirdMark) speakMessage("One third");
+                    }
+
+                    let baseLayer = aladin ? aladin.getBaseImageLayer() : null;
+                    let isFirstStepOfScan = Object.keys(lastTriggerYMap).length === 0;
+
+                    for (let x = 0; x < width; x += resolution) {
+                        let brightness = 50; 
+                        if (baseLayer && typeof baseLayer.readPixel === 'function') {
+                            let pix = baseLayer.readPixel(x, processY); 
+                            if (pix !== null && pix !== undefined) {
+                                if (Array.isArray(pix)) {
+                                    brightness = 0.299 * pix[0] + 0.587 * pix[1] + 0.114 * pix[2];
+                                } else {
+                                    brightness = Number(pix);
+                                }
+                            }
+                        } else {
+                            brightness = (Math.sin(x / 30) + 1) * 35 + (Math.random() * 20);
+                        }
+
+                        let positionalFreq = 150 + (x / width) * 1050;
+                        let panValue = (x / width) * 2 - 1; 
+                        let xBucket = Math.floor(x / 12); 
+
+                        if (isFirstStepOfScan) {
+                            lastTriggerYMap[xBucket] = processY;
+                        } else {
+                            if (brightness >= high_threshold) {
+                                let lastY = lastTriggerYMap[xBucket] !== undefined ? lastTriggerYMap[xBucket] : -999;
+                                
+                                if (Math.abs(processY - lastY) > verticalCooldown) {
+                                    playTone(positionalFreq, 'piano', 0.08, panValue);
+                                    lastTriggerYMap[xBucket] = processY; 
+                                }
+                            } else if (brightness >= low_threshold && brightness < high_threshold) {
+                                playTone(positionalFreq, 'violin', 0.08, panValue);
                             }
                         }
-                    } 
-
-                    let positionalFreq = 150 + (x / width) * 1050;
-                    let panValue = (x / width) * 2 - 1; 
-                    let xBucket = Math.floor(x / 12); 
-
-                    if (brightness >= high_threshold) {
-                        let lastY = lastPianoYMap[xBucket] !== undefined ? lastPianoYMap[xBucket] : -999;
-                        if (Math.abs(processY - lastY) > verticalCooldown) {
-                            playTone(positionalFreq, 'piano', 0.08, panValue, brightness);
-                            lastPianoYMap[xBucket] = processY; 
-                        }
-                    } else if (brightness > low_threshold && brightness < high_threshold) {
-                        let lastY = lastViolinYMap[xBucket] !== undefined ? lastViolinYMap[xBucket] : -999;
-                        if (Math.abs(processY - lastY) > verticalCooldown) {
-                            playTone(positionalFreq, 'violin', 0.08, panValue, brightness);
-                            lastViolinYMap[xBucket] = processY;
-                        }
                     }
+
+                    currentY = nextY;
+                    scanInterval = setTimeout(runScanStep, getScanIntervalDelay());
                 }
 
-                currentY = nextY;
-                scanInterval = setTimeout(runScanStep, getScanIntervalDelay());
-            }
-
-            runScanStep();
+                runScanStep();
+            }, 500);
         }
 
         function pauseSonification() {
@@ -599,10 +570,9 @@
         function stopAndResetSonification(speakStopped = true) {
             isSonifying = false;
             if (scanInterval) clearTimeout(scanInterval);
-            currentY = 0; 
+            currentY = 0;
             scanDirection = 1;
-            lastPianoYMap = {};
-            lastViolinYMap = {};
+            lastTriggerYMap = {};
             const scanLine = document.getElementById('scan-line');
             if (scanLine) {
                 scanLine.style.display = 'none';
