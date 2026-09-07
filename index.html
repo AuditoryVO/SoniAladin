@@ -180,13 +180,14 @@
         }
 
         document.getElementById('play-audio-btn').addEventListener('click', () => {
+            initAudio(); // Unlock audio on user interaction
             speakMessage("Welcome to SoniAladin. Exploring Aladin Sky Atlas through sound. Use the keyboard or activate voice control to start, pause, and stop sonification. Key controls summary: Right Arrow to start or continue sonification. Left Arrow to pause or stop and reset. Shift plus Right Arrow to explore the object in SIMBAD. Plus and minus keys for zoom in or out. Up and down arrows to choose exploration direction. Control key to slow down. Command key to speed up. Option or Alt key to reset speed. Shift plus and minus to adjust the low threshold. Press space bar to start SoniAladin.");
         });
 
         function dismissWelcomeScreen() {
+            initAudio(); // Immediately initialize & unlock audio context synchronously
             welcomeActive = false;
             document.getElementById('welcome-screen').style.display = 'none';
-            initAudio();
             speakMessage("SoniAladin started");
             document.getElementById('status').innerText = "Status: Ready. Use buttons or voice control to begin.";
             targetInput.focus();
@@ -200,6 +201,7 @@
         });
 
         function handleTouchStart() {
+            initAudio(); // Ensure audio context is unlocked right away on mobile touch
             if (!isSonifying && currentY > BOUNDARY_MARGIN && currentY < (document.getElementById('map-container').clientHeight || window.innerHeight) - BOUNDARY_MARGIN) {
                 speakMessage("Continuing Sonification");
             }
@@ -207,6 +209,7 @@
         }
 
         function toggleVoiceControl() {
+            initAudio(); // Unlock audio context
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) {
                 alert("Speech recognition is not supported in this browser.");
@@ -491,6 +494,8 @@
         function startSonification() {
             if (isSonifying) return;
             
+            initAudio(); // Force audio context resume on start trigger
+
             const container = document.getElementById('map-container');
             const height = container.clientHeight || window.innerHeight;
             const width = container.clientWidth || window.innerWidth;
@@ -506,7 +511,6 @@
                 lastViolinYMap = {};
             }
 
-            initAudio();
             document.getElementById('status').innerText = "Status: Scanning & Sonifying...";
             
             if (isResuming && currentY > topBound && currentY < bottomBound) {
@@ -515,77 +519,74 @@
                 speakMessage("Sonification started");
             }
 
-            setTimeout(() => {
-                isSonifying = true;
+            isSonifying = true;
+            const scanLine = document.getElementById('scan-line');
+            scanLine.style.display = 'block';
 
-                const scanLine = document.getElementById('scan-line');
-                scanLine.style.display = 'block';
+            const oneThirdMark = Math.floor(height / 3);
+            const twoThirdMark = Math.floor((height * 2) / 3);
 
-                const oneThirdMark = Math.floor(height / 3);
-                const twoThirdMark = Math.floor((height * 2) / 3);
-
-                function runScanStep() {
-                    if (!isSonifying) return;
-                    
-                    if (currentY > bottomBound || currentY < topBound) {
-                        speakMessage("Sonification finished");
-                        stopAndResetSonification(false);
-                        return;
-                    }
-
-                    let processY = currentY; 
-                    scanLine.style.top = processY + 'px';
-
-                    let nextY = processY + (scanDirection * resolution);
-                    if (scanDirection === 1) {
-                        if (processY < oneThirdMark && nextY >= oneThirdMark) speakMessage("One third");
-                        if (processY < twoThirdMark && nextY >= twoThirdMark) speakMessage("Two thirds");
-                    } else {
-                        if (processY > twoThirdMark && nextY <= twoThirdMark) speakMessage("Two thirds");
-                        if (processY > oneThirdMark && nextY <= oneThirdMark) speakMessage("One third");
-                    }
-
-                    let baseLayer = aladin ? aladin.getBaseImageLayer() : null;
-
-                    for (let x = BOUNDARY_MARGIN; x < width - BOUNDARY_MARGIN; x += resolution) {
-                        let brightness = 0; 
-                        
-                        if (baseLayer && typeof baseLayer.readPixel === 'function') {
-                            let pix = baseLayer.readPixel(x, processY); 
-                            if (pix !== null && pix !== undefined) {
-                                if (Array.isArray(pix)) {
-                                    brightness = 0.299 * pix[0] + 0.587 * pix[1] + 0.114 * pix[2];
-                                } else {
-                                    brightness = Number(pix);
-                                }
-                            }
-                        } 
-
-                        let positionalFreq = 150 + (x / width) * 1050;
-                        let panValue = (x / width) * 2 - 1; 
-                        let xBucket = Math.floor(x / 12); 
-
-                        if (brightness >= high_threshold) {
-                            let lastY = lastPianoYMap[xBucket] !== undefined ? lastPianoYMap[xBucket] : -999;
-                            if (Math.abs(processY - lastY) > verticalCooldown) {
-                                playTone(positionalFreq, 'piano', 0.08, panValue, brightness);
-                                lastPianoYMap[xBucket] = processY; 
-                            }
-                        } else if (brightness > low_threshold && brightness < high_threshold) {
-                            let lastY = lastViolinYMap[xBucket] !== undefined ? lastViolinYMap[xBucket] : -999;
-                            if (Math.abs(processY - lastY) > verticalCooldown) {
-                                playTone(positionalFreq, 'violin', 0.08, panValue, brightness);
-                                lastViolinYMap[xBucket] = processY;
-                            }
-                        }
-                    }
-
-                    currentY = nextY;
-                    scanInterval = setTimeout(runScanStep, getScanIntervalDelay());
+            function runScanStep() {
+                if (!isSonifying) return;
+                
+                if (currentY > bottomBound || currentY < topBound) {
+                    speakMessage("Sonification finished");
+                    stopAndResetSonification(false);
+                    return;
                 }
 
-                runScanStep();
-            }, 500);
+                let processY = currentY; 
+                scanLine.style.top = processY + 'px';
+
+                let nextY = processY + (scanDirection * resolution);
+                if (scanDirection === 1) {
+                    if (processY < oneThirdMark && nextY >= oneThirdMark) speakMessage("One third");
+                    if (processY < twoThirdMark && nextY >= twoThirdMark) speakMessage("Two thirds");
+                } else {
+                    if (processY > twoThirdMark && nextY <= twoThirdMark) speakMessage("Two thirds");
+                    if (processY > oneThirdMark && nextY <= oneThirdMark) speakMessage("One third");
+                }
+
+                let baseLayer = aladin ? aladin.getBaseImageLayer() : null;
+
+                for (let x = BOUNDARY_MARGIN; x < width - BOUNDARY_MARGIN; x += resolution) {
+                    let brightness = 0; 
+                    
+                    if (baseLayer && typeof baseLayer.readPixel === 'function') {
+                        let pix = baseLayer.readPixel(x, processY); 
+                        if (pix !== null && pix !== undefined) {
+                            if (Array.isArray(pix)) {
+                                brightness = 0.299 * pix[0] + 0.587 * pix[1] + 0.114 * pix[2];
+                            } else {
+                                brightness = Number(pix);
+                            }
+                        }
+                    } 
+
+                    let positionalFreq = 150 + (x / width) * 1050;
+                    let panValue = (x / width) * 2 - 1; 
+                    let xBucket = Math.floor(x / 12); 
+
+                    if (brightness >= high_threshold) {
+                        let lastY = lastPianoYMap[xBucket] !== undefined ? lastPianoYMap[xBucket] : -999;
+                        if (Math.abs(processY - lastY) > verticalCooldown) {
+                            playTone(positionalFreq, 'piano', 0.08, panValue, brightness);
+                            lastPianoYMap[xBucket] = processY; 
+                        }
+                    } else if (brightness > low_threshold && brightness < high_threshold) {
+                        let lastY = lastViolinYMap[xBucket] !== undefined ? lastViolinYMap[xBucket] : -999;
+                        if (Math.abs(processY - lastY) > verticalCooldown) {
+                            playTone(positionalFreq, 'violin', 0.08, panValue, brightness);
+                            lastViolinYMap[xBucket] = processY;
+                        }
+                    }
+                }
+
+                currentY = nextY;
+                scanInterval = setTimeout(runScanStep, getScanIntervalDelay());
+            }
+
+            runScanStep();
         }
 
         function pauseSonification() {
