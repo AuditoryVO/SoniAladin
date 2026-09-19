@@ -551,6 +551,7 @@
                     }
 
                     let baseLayer = aladin ? aladin.getBaseImageLayer() : null;
+                    let potentialNotes = []; // Added an array to collect all notes across the scan line
 
                     for (let x = BOUNDARY_MARGIN; x < width - BOUNDARY_MARGIN; x += resolution) {
                         let brightness = 0; 
@@ -575,17 +576,37 @@
                         let panValue = (x / width) * 2 - 1; 
                         let xBucket = Math.floor(x / 12); 
 
+                        // Instead of playing immediately, push to our collection array
                         if (brightness >= high_threshold) {
                             let lastY = lastPianoYMap[xBucket] !== undefined ? lastPianoYMap[xBucket] : -999;
                             if (Math.abs(processY - lastY) > verticalCooldown) {
-                                playTone(positionalFreq, 'piano', 0.08, panValue, brightness);
-                                lastPianoYMap[xBucket] = processY; 
+                                potentialNotes.push({ type: 'piano', xBucket, positionalFreq, panValue, brightness });
                             }
                         } else if (brightness > low_threshold && brightness < high_threshold) {
                             let lastY = lastViolinYMap[xBucket] !== undefined ? lastViolinYMap[xBucket] : -999;
                             if (Math.abs(processY - lastY) > verticalCooldown) {
-                                playTone(positionalFreq, 'violin', 0.08, panValue, brightness);
-                                lastViolinYMap[xBucket] = processY;
+                                potentialNotes.push({ type: 'violin', xBucket, positionalFreq, panValue, brightness });
+                            }
+                        }
+                    }
+
+                    // Limit the maximum number of simultaneous voices per scan step to avoid overloading audio engine
+                    const MAX_POLYPHONY_PER_STEP = 24; 
+                    
+                    if (potentialNotes.length > 0) {
+                        // Calculate a step size to evenly sample the potential notes array if it exceeds the max polyphony limit
+                        let stepSize = Math.max(1, potentialNotes.length / MAX_POLYPHONY_PER_STEP);
+                        let limit = Math.min(potentialNotes.length, MAX_POLYPHONY_PER_STEP);
+
+                        for (let i = 0; i < limit; i++) {
+                            let note = potentialNotes[Math.floor(i * stepSize)];
+                            playTone(note.positionalFreq, note.type, 0.08, note.panValue, note.brightness);
+                            
+                            // Update the cooldown trackers only for the notes that were actually played
+                            if (note.type === 'piano') {
+                                lastPianoYMap[note.xBucket] = processY; 
+                            } else {
+                                lastViolinYMap[note.xBucket] = processY;
                             }
                         }
                     }
