@@ -56,9 +56,9 @@
                 <li><strong>+ / - Keys:</strong> ALADIN Zoom in or Zoom out</li>
                 <li><strong>SHIFT + (+ / -):</strong> Increase or reduce low threshold</li>
                 <li><strong>Up / Down Arrow:</strong> Choose top-wise or down-wise exploration</li>
-                <li><strong>Control Key:</strong> Slow down exploration (-25%) </li>
-                <li><strong>Command Key:</strong> Speed up exploration (+25%) </li>
-                <li><strong>Option / Alt Key:</strong> Reset exploration speed (Default speed)</li>
+                <li><strong>SHIFT + Control Key:</strong> Slow down exploration (-25%) </li>
+                <li><strong>SHIFT + Command Key:</strong> Speed up exploration (+25%) </li>
+                <li><strong>SHIFT + Option / Alt Key:</strong> Reset exploration speed (Default speed)</li>
             </ul>
         </div>
         <button id="start-prompt">Click here or press "space bar" to start SoniAladin</button>
@@ -67,7 +67,7 @@
     <div id="controls">
         <div>
             <label>Target: </label>
-            <input type="text" id="targetInput" placeholder="NGC 619, alf ori, etc.">
+            <input type="text" id="targetInput" placeholder="Type the name of an object">
         </div>
         <div id="action-buttons">
             <button id="voice-control-btn" onclick="toggleVoiceControl()">Voice: OFF</button>
@@ -182,7 +182,7 @@
 
         document.getElementById('play-audio-btn').addEventListener('click', () => {
             initAudio();
-            speakMessage("Welcome to SoniAladin. Exploring Aladin Sky Atlas through sound. Use the keyboard or activate voice control to start, pause, and stop sonification. Key controls summary: Right Arrow to start or continue sonification. Left Arrow to pause or stop and reset. Shift plus Right Arrow to explore the object in SIMBAD. Plus and minus keys for zoom in or out. Up and down arrows to choose exploration direction. Control key to slow down. Command key to speed up. Option or Alt key to reset speed. Shift plus and minus to adjust the low threshold. Press space bar to start SoniAladin.");
+            speakMessage("Welcome to SoniAladin. Exploring Aladin Sky Atlas through sound. Use the keyboard or activate voice control to start, pause, and stop sonification. Key controls summary: Right Arrow to start or continue sonification. Left Arrow to pause or stop and reset. Shift plus Right Arrow to explore the object in SIMBAD. Plus and minus keys for zoom in or out. Up and down arrows to choose exploration direction. Shift plus Control key to slow down. Shift plus Command key to speed up. Shift plus Option or Alt key to reset speed. Shift plus plus or minus to adjust the low threshold. Press space bar to start SoniAladin.");
         });
 
         function dismissWelcomeScreen() {
@@ -388,17 +388,17 @@
                 return; 
             }
 
-            if (e.key === 'Control') {
+            if (e.shiftKey && e.key === 'Control') {
                 speedMultiplier *= 1.25; 
                 speakMessage("Slowing down");
                 document.getElementById('status').innerText = `Speed: Slowing down (x${(1/speedMultiplier).toFixed(2)})`;
                 e.preventDefault();
-            } else if (e.key === 'Alt' || e.key === 'Option') {
+            } else if (e.shiftKey && (e.key === 'Alt' || e.key === 'Option')) {
                 speedMultiplier = 1.0; 
                 speakMessage("Default speed");
                 document.getElementById('status').innerText = "Speed: Default (x1.00)";
                 e.preventDefault();
-            } else if (e.key === 'Meta') {
+            } else if (e.shiftKey && e.key === 'Meta') {
                 speedMultiplier *= 0.75; 
                 speakMessage("Speeding up");
                 document.getElementById('status').innerText = `Speed: Speeding up (x${(1/speedMultiplier).toFixed(2)})`;
