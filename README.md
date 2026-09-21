@@ -1,9 +1,13 @@
 # SoniAladin
 SoniAladin is an application developed in the context of the Open Science initiative of the Spanish Virtual Observatory (SVO). It allows the transformation of Aladin’s virtual sky into audible representations.
 
-This work has made use of the Spanish Virtual Observatory (https://svo.cab.inta-csic.es) project funded by MCIN/AEI/10.13039/501100011033 through grant PID2023-146210NB-I00.
+This research has made use of "Aladin sky atlas" developed at CDS, Strasbourg Observatory, France
+2000A&AS..143...33B (Aladin Desktop), 2014ASPC..485..277B (Aladin Lite v2), and 2022ASPC..532....7B (Aladin Lite v3).
 
-![](UI.jpg)
+This research has made use of the Spanish Virtual Observatory (https://svo.cab.inta-csic.es) project funded by MCIN/AEI/10.13039/501100011033 through grant PID2023-146210NB-I00.
+
+<img width="1361" height="955" alt="SoniAladin" src="https://github.com/user-attachments/assets/b6df18d9-b346-4c38-bd4f-a6525561910b" />
+
 
 INSTALLATION:
 
