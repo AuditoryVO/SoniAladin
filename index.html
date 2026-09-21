@@ -88,7 +88,7 @@
         const i18n = {
             en: {
                 welcomeAudio: "Welcome to SoniAladin. Exploring Aladin Sky Atlas through sound. Use the keyboard or activate voice control to start, pause, and stop sonification. Key controls summary: Right Arrow to start or continue sonification. Left Arrow to pause or stop and reset. Shift plus Right Arrow to explore the object in SIMBAD. Plus and minus keys for zoom in or out. Up and down arrows to choose exploration direction. Shift plus Control key to slow down. Shift plus Command key to speed up. Shift plus Option or Alt key to reset speed. Shift plus plus or minus to adjust the low threshold. Press space bar to start SoniAladin.",
-                started: "Sonification started",
+                started: "Exploring",
                 readyStatus: "Status: Ready. Use buttons or voice control to begin.",
                 continuing: "Continuing Sonification",
                 starting: "Starting SoniAladin",
@@ -103,8 +103,8 @@
                 thresholdDec: "Threshold decreased to",
                 zoomIn: "Zoom in",
                 zoomOut: "Zoom out",
-                downExploration: "down-wise exploration",
-                topExploration: "top-wise exploration",
+                downExploration: "down-wise",
+                topExploration: "top-wise",
                 exploringSimbad: "Exploring",
                 inSimbad: "in simbad",
                 oneThird: "One third",
@@ -143,7 +143,7 @@
             },
             es: {
                 welcomeAudio: "Bienvenido a SoniAladin. Explorando el Atlas Celeste Aladin a través del sonido. Usa el teclado o activa el control por voz para iniciar, pausar y detener la sonificación. Resumen de controles: Flecha derecha para iniciar o continuar. Flecha izquierda para pausar o detener. Mayús más flecha derecha para explorar el objeto en SIMBAD. Teclas más y menos para acercar o alejar. Flechas arriba y abajo para elegir la dirección. Mayús más Control para ir más lento. Mayús más Comando para ir más rápido. Mayús más Opción o Alt para velocidad por defecto. Mayús más tecla más o menos para ajustar el umbral bajo. Presiona la barra espaciadora para iniciar.",
-                started: "Sonificación iniciada",
+                started: "Explorando",
                 readyStatus: "Estado: Listo. Usa los botones o el control por voz para comenzar.",
                 continuing: "Continuando sonificación",
                 starting: "Iniciando SoniAladin",
@@ -158,8 +158,8 @@
                 thresholdDec: "Umbral reducido a",
                 zoomIn: "Acercar",
                 zoomOut: "Alejar",
-                downExploration: "exploración hacia abajo",
-                topExploration: "exploración hacia arriba",
+                downExploration: "hacia abajo",
+                topExploration: "hacia arriba",
                 exploringSimbad: "Explorando",
                 inSimbad: "en simbad",
                 oneThird: "Un tercio",
@@ -198,7 +198,7 @@
             },
             ca: {
                 welcomeAudio: "Benvingut a SoniAladin. Explorant l'Atles Celest Aladin a través del so. Utilitza el teclat o activa el control per veu per iniciar, pausar i aturar la sonificació. Resum de controls: Fletxa dreta per iniciar o continuar. Fletxa esquerra per pausar o aturar. Majúscules més fletxa dreta per explorar l'objecte a SIMBAD. Tecles més i menys per apropar o allunyar. Fletxes amunt i avall per triar la direcció. Majúscules més Control per anar més a poc a poc. Majúscules més Comandament per anar més ràpid. Majúscules més Opció o Alt per a la velocitat per defecte. Majúscules més tecla més o menys per ajustar el llindar baix. Prem la barra espaiadora per iniciar.",
-                started: "Sonificació iniciada",
+                started: "Explorant",
                 readyStatus: "Estat: Llest. Utilitza els botons o el control per veu per començar.",
                 continuing: "Continuant sonificació",
                 starting: "Iniciant SoniAladin",
@@ -213,8 +213,8 @@
                 thresholdDec: "Llindar reduït a",
                 zoomIn: "Apropar",
                 zoomOut: "Allunyar",
-                downExploration: "exploració cap avall",
-                topExploration: "exploració cap amunt",
+                downExploration: "cap avall",
+                topExploration: "cap amunt",
                 exploringSimbad: "Explorant",
                 inSimbad: "a simbad",
                 oneThird: "Un terç",
@@ -391,7 +391,16 @@
             if ('speechSynthesis' in window) {
                 // Critical for Safari / VoiceOver compatibility: cancel previous utterances
                 window.speechSynthesis.cancel();
-                const utterance = new SpeechSynthesisUtterance(text);
+                
+                let spokenText = text;
+                // Pre-process object names starting with "m" or "M" followed by digits to avoid TTS treating "m" as "meters"
+                if (currentLang === 'ca') {
+                    spokenText = spokenText.replace(/\b[mM]\s*(\d+)/g, 'Ema $1');
+                } else if (currentLang === 'es') {
+                    spokenText = spokenText.replace(/\b[mM]\s*(\d+)/g, 'Eme $1');
+                }
+
+                const utterance = new SpeechSynthesisUtterance(spokenText);
                 
                 // Set synthesis language property according to detection
                 if (currentLang === 'es') utterance.lang = 'es-ES';
@@ -431,9 +440,6 @@
 
         function handleTouchStart() {
             initAudio();
-            if (!isSonifying && currentY > BOUNDARY_MARGIN && currentY < (document.getElementById('map-container').clientHeight || window.innerHeight) - BOUNDARY_MARGIN) {
-                speakMessage(t('continuing'));
-            }
             startSonification();
         }
 
@@ -466,7 +472,6 @@
                     let isStop = command.includes('stop') || command.includes('reset') || command.includes('detener') || command.includes('aturar') || command.includes('reiniciar');
 
                     if (isStart) {
-                        speakMessage(t('starting'));
                         handleTouchStart();
                     } else if (isPause) {
                         pauseSonification();
@@ -696,9 +701,10 @@
                 scanDirection = 1;
                 lastPianoYMap = {};
                 lastViolinYMap = {};
-                speakMessage(t('downExploration'));
-                document.getElementById('status').innerText = `${t('statusStr')}: ${t('downExploration')}...`;
-                if (!isSonifying) {
+                if (isSonifying) {
+                    speakMessage(t('downExploration'));
+                    document.getElementById('status').innerText = `${t('statusStr')}: ${t('downExploration')}...`;
+                } else {
                     startSonification();
                 }
                 e.preventDefault();
@@ -706,9 +712,10 @@
                 scanDirection = -1;
                 lastPianoYMap = {};
                 lastViolinYMap = {};
-                speakMessage(t('topExploration'));
-                document.getElementById('status').innerText = `${t('statusStr')}: ${t('topExploration')}...`;
-                if (!isSonifying) {
+                if (isSonifying) {
+                    speakMessage(t('topExploration'));
+                    document.getElementById('status').innerText = `${t('statusStr')}: ${t('topExploration')}...`;
+                } else {
                     startSonification();
                 }
                 e.preventDefault();
@@ -769,12 +776,17 @@
             }
 
             initAudio();
-            document.getElementById('status').innerText = `${t('statusStr')}: Scanning & Sonifying...`;
+
+            const dirText = scanDirection === 1 ? t('downExploration') : t('topExploration');
             
             if (isResuming && currentY > topBound && currentY < bottomBound) {
-                speakMessage(t('continuing'));
+                const msg = `${t('continuing')}, ${dirText}`;
+                speakMessage(msg);
+                document.getElementById('status').innerText = `${t('statusStr')}: ${msg}...`;
             } else {
-                speakMessage(t('started'));
+                const msg = `${t('started')} ${currentTargetName}, ${dirText}`;
+                speakMessage(msg);
+                document.getElementById('status').innerText = `${t('statusStr')}: ${msg}...`;
             }
 
             setTimeout(() => {
