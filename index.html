@@ -18,7 +18,8 @@
         #map-container { position: relative; width: 100vw; flex-grow: 1; }
         #aladin-lite-div { width: 100%; height: 100%; }
         
-        #scan-line { position: absolute; left: 0; top: 0px; width: 100vw; height: 2px; background-color: rgba(140, 0, 255, 0.7); box-shadow: 0 0 4px rgb(140, 0, 255); pointer-events: none; display: none; z-index: 5; }
+        /* Scan-line defaults to horizontal configuration */
+        #scan-line { position: absolute; left: 0px; top: 0px; width: 2px; height: 100vh; background-color: rgba(140, 0, 255, 0.7); box-shadow: 0 0 4px rgb(140, 0, 255); pointer-events: none; display: none; z-index: 5; }
         #status { font-weight: bold; color: #a200ff; margin: 0 10px; font-size: 0.9rem; }
 
         /* Welcome Screen Overlay */
@@ -29,7 +30,7 @@
         #play-audio-btn { background: #333; color: #fff; border: 1px solid #ae00ff; padding: 8px 16px; border-radius: 4px; margin-bottom: 20px; cursor: pointer; font-size: 0.9rem; }
         #play-audio-btn:hover { background: #aa00ff; }
 
-        .controls-box { background: #222; border: 1px solid #444; padding: 20px; border-radius: 8px; margin-bottom: 25px; max-width: 580px; text-align: left; font-size: 0.9rem; line-height: 1.6; }
+        .controls-box { background: #222; border: 1px solid #444; padding: 20px; border-radius: 8px; margin-bottom: 25px; max-width: 600px; text-align: left; font-size: 0.9rem; line-height: 1.6; }
         .controls-box ul { margin: 0; padding-left: 20px; }
         .controls-box li { margin-bottom: 6px; }
         
@@ -49,13 +50,13 @@
         <div class="controls-box">
             <strong id="ui-controlsSummary">Key Controls Summary:</strong>
             <ul>
-                <li id="ui-ctrlVoice"><strong>Simplified Voice Control:</strong> Say "start", "pause", or "stop"</li>
-                <li id="ui-ctrlRight"><strong>Right Arrow:</strong> Start or continue sonification</li>
-                <li id="ui-ctrlLeft"><strong>Left Arrow (Press / Double):</strong> Pause or Stop & Reset</li>
-                <li id="ui-ctrlSimbad"><strong>SHIFT + Right Arrow:</strong> Explore the object in SIMBAD</li>
+                <li id="ui-ctrlVoice"><strong>Simplified Voice Control:</strong> Say "start", "pause", "stop", "horizontal", or "vertical"</li>
+                <li id="ui-ctrlRight"><strong>Right Arrow:</strong> Start or continue right/down exploration</li>
+                <li id="ui-ctrlLeft"><strong>Left Arrow:</strong> Start or continue left/up exploration</li>
+                <li id="ui-ctrlDown"><strong>Down Arrow (Press / Double):</strong> Pause or Stop & Reset</li>
+                <li id="ui-ctrlUp"><strong>Up Arrow:</strong> Explore the object in SIMBAD</li>
                 <li id="ui-ctrlZoom"><strong>+ / - Keys:</strong> ALADIN Zoom in or Zoom out</li>
                 <li id="ui-ctrlThresh"><strong>SHIFT + (+ / -):</strong> Increase or reduce low threshold</li>
-                <li id="ui-ctrlDir"><strong>Up / Down Arrow:</strong> Choose top-wise or down-wise exploration</li>
                 <li id="ui-ctrlSlow"><strong>SHIFT + Control Key:</strong> Slow down exploration (-25%)</li>
                 <li id="ui-ctrlFast"><strong>SHIFT + Command Key:</strong> Speed up exploration (+25%)</li>
                 <li id="ui-ctrlReset"><strong>SHIFT + Option / Alt Key:</strong> Reset exploration speed</li>
@@ -71,6 +72,7 @@
         </div>
         <div id="action-buttons">
             <button id="voice-control-btn" onclick="toggleVoiceControl()" aria-label="Toggle Voice Control">Voice: OFF</button>
+            <button id="mode-toggle-btn" onclick="toggleMode()" aria-label="Toggle Exploration Mode">Mode: Horizontal</button>
             <button id="btn-start" onclick="handleTouchStart()" aria-label="Play Sonification">Play</button>
             <button id="btn-pause" onclick="pauseSonification()" aria-label="Pause Sonification">Pause</button>
             <button id="btn-stop" onclick="stopAndResetSonification(true)" aria-label="Stop Sonification">Stop</button>
@@ -87,12 +89,12 @@
         // --- Internationalization (i18n) Logic ---
         const i18n = {
             en: {
-                welcomeAudio: "Welcome to SoniAladin. Exploring Aladin Sky Atlas through sound. Use the keyboard or activate voice control to start, pause, and stop sonification. Key controls summary: Right Arrow to start or continue sonification. Left Arrow to pause or stop and reset. Shift plus Right Arrow to explore the object in SIMBAD. Plus and minus keys for zoom in or out. Up and down arrows to choose exploration direction. Shift plus Control key to slow down. Shift plus Command key to speed up. Shift plus Option or Alt key to reset speed. Shift plus plus or minus to adjust the low threshold. Press space bar to start SoniAladin.",
+                welcomeAudio: "Welcome to SoniAladin. Exploring Aladin Sky Atlas through sound. Use the keyboard or activate voice control to start, pause, stop, and switch modes. Key controls summary: Right Arrow for right or down exploration. Left Arrow for left or up exploration. Down Arrow to pause or stop and reset. Up Arrow to explore the object in SIMBAD. Plus and minus keys for zoom in or out. Shift plus Control key to slow down. Shift plus Command key to speed up. Shift plus Option or Alt key to reset speed. Shift plus plus or minus to adjust the low threshold. Press space bar to start SoniAladin.",
                 started: "Exploring",
                 readyStatus: "Status: Ready. Use buttons or voice control to begin.",
                 continuing: "Continuing Sonification",
                 starting: "Starting SoniAladin",
-                voiceOnStatus: "Voice control activated. Say play, pause, or stop.",
+                voiceOnStatus: "Voice control activated. Say play, pause, stop, horizontal, or vertical.",
                 voiceOffStatus: "Voice control deactivated",
                 slowingDown: "Slowing down",
                 defaultSpeed: "Default speed",
@@ -103,6 +105,8 @@
                 thresholdDec: "Threshold decreased to",
                 zoomIn: "Zoom in",
                 zoomOut: "Zoom out",
+                rightExploration: "right-wise",
+                leftExploration: "left-wise",
                 downExploration: "down-wise",
                 topExploration: "top-wise",
                 exploringSimbad: "Exploring",
@@ -115,18 +119,20 @@
                 heard: "Heard",
                 speedStr: "Speed",
                 statusStr: "Status",
+                switchedToHoriz: "Switched to horizontal mode",
+                switchedToVert: "Switched to vertical mode",
                 // UI elements
                 subtitle: "Exploring Aladin Sky Atlas through sound",
                 playAudioBtn: "Play Audio Instructions",
                 controlsSummary: "Key Controls Summary:",
-                ctrlVoice: "<strong>Simplified Voice Control:</strong> Say 'start', 'pause', or 'stop' (Requires microphone access)",
-                ctrlVoiceUnsupported: "<strong>Simplified Voice Control:</strong> Not supported in your current browser (Try Chrome/Edge/Safari)",
-                ctrlRight: "<strong>Right Arrow:</strong> Start or continue sonification",
-                ctrlLeft: "<strong>Left Arrow (Press / Double):</strong> Pause or Stop & Reset",
-                ctrlSimbad: "<strong>SHIFT + Right Arrow:</strong> Explore the object in SIMBAD",
+                ctrlVoice: "<strong>Simplified Voice Control:</strong> Say 'start', 'pause', 'stop', 'horizontal', or 'vertical'",
+                ctrlVoiceUnsupported: "<strong>Simplified Voice Control:</strong> Not supported in your current browser",
+                ctrlRight: "<strong>Right Arrow:</strong> Start or continue right/down exploration",
+                ctrlLeft: "<strong>Left Arrow:</strong> Start or continue left/up exploration",
+                ctrlDown: "<strong>Down Arrow (Press / Double):</strong> Pause or Stop & Reset",
+                ctrlUp: "<strong>Up Arrow:</strong> Explore the object in SIMBAD",
                 ctrlZoom: "<strong>+ / - Keys:</strong> ALADIN Zoom in or Zoom out",
                 ctrlThresh: "<strong>SHIFT + (+ / -):</strong> Increase or reduce low threshold",
-                ctrlDir: "<strong>Up / Down Arrow:</strong> Choose top-wise or down-wise exploration",
                 ctrlSlow: "<strong>SHIFT + Control Key:</strong> Slow down exploration (-25%)",
                 ctrlFast: "<strong>SHIFT + Command Key:</strong> Speed up exploration (+25%)",
                 ctrlReset: "<strong>SHIFT + Option / Alt Key:</strong> Reset exploration speed (Default speed)",
@@ -135,6 +141,8 @@
                 targetPlaceholder: "Type the name of an object",
                 btnVoiceOff: "Voice: OFF",
                 btnVoiceOn: "Voice: ON",
+                btnModeHoriz: "Mode: Horizontal",
+                btnModeVert: "Mode: Vertical",
                 btnPlay: "Play",
                 btnPause: "Pause",
                 btnStop: "Stop",
@@ -142,12 +150,12 @@
                 navigatedTo: "Navigated to"
             },
             es: {
-                welcomeAudio: "Bienvenido a SoniAladin. Explorando el Atlas Celeste Aladin a través del sonido. Usa el teclado o activa el control por voz para iniciar, pausar y detener la sonificación. Resumen de controles: Flecha derecha para iniciar o continuar. Flecha izquierda para pausar o detener. Mayús más flecha derecha para explorar el objeto en SIMBAD. Teclas más y menos para acercar o alejar. Flechas arriba y abajo para elegir la dirección. Mayús más Control para ir más lento. Mayús más Comando para ir más rápido. Mayús más Opción o Alt para velocidad por defecto. Mayús más tecla más o menos para ajustar el umbral bajo. Presiona la barra espaciadora para iniciar.",
+                welcomeAudio: "Bienvenido a SoniAladin. Explorando el Atlas Celeste Aladin a través del sonido. Usa el teclado o activa el control por voz para iniciar, pausar, detener y cambiar modos. Resumen de controles: Flecha derecha para exploración hacia la derecha o abajo. Flecha izquierda para exploración hacia la izquierda o arriba. Flecha abajo para pausar o detener y reiniciar. Flecha arriba para explorar en SIMBAD. Teclas más y menos para acercar o alejar. Mayús más Control para ir más lento. Mayús más Comando para ir más rápido. Mayús más Opción o Alt para velocidad por defecto. Mayús más tecla más o menos para ajustar el umbral bajo. Presiona la barra espaciadora para iniciar.",
                 started: "Explorando",
                 readyStatus: "Estado: Listo. Usa los botones o el control por voz para comenzar.",
                 continuing: "Continuando sonificación",
                 starting: "Iniciando SoniAladin",
-                voiceOnStatus: "Control por voz activado. Di reproducir, pausar o detener.",
+                voiceOnStatus: "Control por voz activado. Di reproducir, pausar, detener, horizontal o vertical.",
                 voiceOffStatus: "Control por voz desactivado",
                 slowingDown: "Reduciendo velocidad",
                 defaultSpeed: "Velocidad por defecto",
@@ -158,6 +166,8 @@
                 thresholdDec: "Umbral reducido a",
                 zoomIn: "Acercar",
                 zoomOut: "Alejar",
+                rightExploration: "hacia la derecha",
+                leftExploration: "hacia la izquierda",
                 downExploration: "hacia abajo",
                 topExploration: "hacia arriba",
                 exploringSimbad: "Explorando",
@@ -170,18 +180,20 @@
                 heard: "Escuchado",
                 speedStr: "Velocidad",
                 statusStr: "Estado",
+                switchedToHoriz: "Cambiado a modo horizontal",
+                switchedToVert: "Cambiado a modo vertical",
                 // UI elements
                 subtitle: "Explorando el Atlas Celeste Aladin a través del sonido",
                 playAudioBtn: "Reproducir Instrucciones de Audio",
                 controlsSummary: "Resumen de Controles:",
-                ctrlVoice: "<strong>Control por Voz Simplificado:</strong> Di 'iniciar', 'pausar' o 'detener' (Requiere micrófono)",
-                ctrlVoiceUnsupported: "<strong>Control por Voz Simplificado:</strong> No compatible en tu navegador actual (Prueba Chrome/Edge/Safari)",
-                ctrlRight: "<strong>Flecha Derecha:</strong> Iniciar o continuar sonificación",
-                ctrlLeft: "<strong>Flecha Izquierda (Presionar / Doble):</strong> Pausar o Detener y Reiniciar",
-                ctrlSimbad: "<strong>MAYÚS + Flecha Derecha:</strong> Explorar el objeto en SIMBAD",
+                ctrlVoice: "<strong>Control por Voz Simplificado:</strong> Di 'iniciar', 'pausar', 'detener', 'horizontal' o 'vertical'",
+                ctrlVoiceUnsupported: "<strong>Control por Voz Simplificado:</strong> No compatible en tu navegador actual",
+                ctrlRight: "<strong>Flecha Derecha:</strong> Iniciar o continuar exploración derecha/abajo",
+                ctrlLeft: "<strong>Flecha Izquierda:</strong> Iniciar o continuar exploración izquierda/arriba",
+                ctrlDown: "<strong>Flecha Abajo (Presionar / Doble):</strong> Pausar o Detener y Reiniciar",
+                ctrlUp: "<strong>Flecha Arriba:</strong> Explorar el objeto en SIMBAD",
                 ctrlZoom: "<strong>Teclas + / -:</strong> Acercar o alejar ALADIN",
                 ctrlThresh: "<strong>MAYÚS + (+ / -):</strong> Aumentar o reducir umbral bajo",
-                ctrlDir: "<strong>Flecha Arriba / Abajo:</strong> Elegir exploración hacia arriba o hacia abajo",
                 ctrlSlow: "<strong>MAYÚS + Control:</strong> Reducir velocidad de exploración (-25%)",
                 ctrlFast: "<strong>MAYÚS + Comando:</strong> Aumentar velocidad de exploración (+25%)",
                 ctrlReset: "<strong>MAYÚS + Opción / Alt:</strong> Restablecer velocidad de exploración (Por defecto)",
@@ -190,6 +202,8 @@
                 targetPlaceholder: "Escribe el nombre de un objeto",
                 btnVoiceOff: "Voz: DESACT.",
                 btnVoiceOn: "Voz: ACTIVA",
+                btnModeHoriz: "Modo: Horizontal",
+                btnModeVert: "Modo: Vertical",
                 btnPlay: "Reproducir",
                 btnPause: "Pausar",
                 btnStop: "Detener",
@@ -197,12 +211,12 @@
                 navigatedTo: "Navegado a"
             },
             ca: {
-                welcomeAudio: "Benvingut a SoniAladin. Explorant l'Atles Celest Aladin a través del so. Utilitza el teclat o activa el control per veu per iniciar, pausar i aturar la sonificació. Resum de controls: Fletxa dreta per iniciar o continuar. Fletxa esquerra per pausar o aturar. Majúscules més fletxa dreta per explorar l'objecte a SIMBAD. Tecles més i menys per apropar o allunyar. Fletxes amunt i avall per triar la direcció. Majúscules més Control per anar més a poc a poc. Majúscules més Comandament per anar més ràpid. Majúscules més Opció o Alt per a la velocitat per defecte. Majúscules més tecla més o menys per ajustar el llindar baix. Prem la barra espaiadora per iniciar.",
+                welcomeAudio: "Benvingut a SoniAladin. Explorant l'Atles Celest Aladin a través del so. Utilitza el teclat o activa el control per veu per iniciar, pausar, aturar i canviar de mode. Resum de controls: Fletxa dreta per a exploració cap a la dreta o avall. Fletxa esquerra per a exploració cap a l'esquerra o amunt. Fletxa avall per pausar o aturar i reiniciar. Fletxa amunt per explorar a SIMBAD. Tecles més i menys per apropar o allunyar. Majúscules més Control per anar més a poc a poc. Majúscules més Comandament per anar més ràpid. Majúscules més Opció o Alt per a la velocitat per defecte. Majúscules més tecla més o menys per ajustar el llindar baix. Prem la barra espaiadora per iniciar.",
                 started: "Explorant",
                 readyStatus: "Estat: Llest. Utilitza els botons o el control per veu per començar.",
                 continuing: "Continuant sonificació",
                 starting: "Iniciant SoniAladin",
-                voiceOnStatus: "Control per veu activat. Digues reproduir, pausar o aturar.",
+                voiceOnStatus: "Control per veu activat. Digues reproduir, pausar, aturar, horitzontal o vertical.",
                 voiceOffStatus: "Control per veu desactivat",
                 slowingDown: "Reduint velocitat",
                 defaultSpeed: "Velocitat per defecte",
@@ -213,6 +227,8 @@
                 thresholdDec: "Llindar reduït a",
                 zoomIn: "Apropar",
                 zoomOut: "Allunyar",
+                rightExploration: "cap a la dreta",
+                leftExploration: "cap a l'esquerra",
                 downExploration: "cap avall",
                 topExploration: "cap amunt",
                 exploringSimbad: "Explorant",
@@ -225,18 +241,20 @@
                 heard: "Escoltat",
                 speedStr: "Velocitat",
                 statusStr: "Estat",
+                switchedToHoriz: "Canviat a mode horitzontal",
+                switchedToVert: "Canviat a mode vertical",
                 // UI elements
                 subtitle: "Explorant l'Atles Celest Aladin a través del so",
                 playAudioBtn: "Reproduir Instruccions d'Àudio",
                 controlsSummary: "Resum de Controls:",
-                ctrlVoice: "<strong>Control per Veu Simplificat:</strong> Digues 'iniciar', 'pausar' o 'aturar' (Requereix micròfon)",
-                ctrlVoiceUnsupported: "<strong>Control per Veu Simplificat:</strong> No compatible amb el teu navegador actual (Prova Chrome/Edge/Safari)",
-                ctrlRight: "<strong>Fletxa Dreta:</strong> Iniciar o continuar sonificació",
-                ctrlLeft: "<strong>Fletxa Esquerra (Prémer / Doble):</strong> Pausar o Aturar i Reiniciar",
-                ctrlSimbad: "<strong>MAJ + Fletxa Dreta:</strong> Explorar l'objecte a SIMBAD",
+                ctrlVoice: "<strong>Control per Veu Simplificat:</strong> Digues 'iniciar', 'pausar', 'aturar', 'horitzontal' o 'vertical'",
+                ctrlVoiceUnsupported: "<strong>Control per Veu Simplificat:</strong> No compatible amb el teu navegador actual",
+                ctrlRight: "<strong>Fletxa Dreta:</strong> Iniciar o continuar exploració dreta/avall",
+                ctrlLeft: "<strong>Fletxa Esquerra:</strong> Iniciar o continuar exploració esquerra/amunt",
+                ctrlDown: "<strong>Fletxa Avall (Prémer / Doble):</strong> Pausar o Aturar i Reiniciar",
+                ctrlUp: "<strong>Fletxa Amunt:</strong> Explorar l'objecte a SIMBAD",
                 ctrlZoom: "<strong>Tecles + / -:</strong> Apropar o allunyar ALADIN",
                 ctrlThresh: "<strong>MAJ + (+ / -):</strong> Augmentar o reduir llindar baix",
-                ctrlDir: "<strong>Fletxa Amunt / Avall:</strong> Triar exploració cap amunt o cap avall",
                 ctrlSlow: "<strong>MAJ + Control:</strong> Reduir velocitat d'exploració (-25%)",
                 ctrlFast: "<strong>MAJ + Comandament:</strong> Augmentar velocitat d'exploració (+25%)",
                 ctrlReset: "<strong>MAJ + Opció / Alt:</strong> Restablir velocitat d'exploració (Per defecte)",
@@ -245,6 +263,8 @@
                 targetPlaceholder: "Escriu el nom d'un objecte",
                 btnVoiceOff: "Veu: DESACT.",
                 btnVoiceOn: "Veu: ACTIVA",
+                btnModeHoriz: "Mode: Horitzontal",
+                btnModeVert: "Mode: Vertical",
                 btnPlay: "Reproduir",
                 btnPause: "Pausar",
                 btnStop: "Aturar",
@@ -286,10 +306,10 @@
 
             document.getElementById('ui-ctrlRight').innerHTML = t('ctrlRight');
             document.getElementById('ui-ctrlLeft').innerHTML = t('ctrlLeft');
-            document.getElementById('ui-ctrlSimbad').innerHTML = t('ctrlSimbad');
+            document.getElementById('ui-ctrlDown').innerHTML = t('ctrlDown');
+            document.getElementById('ui-ctrlUp').innerHTML = t('ctrlUp');
             document.getElementById('ui-ctrlZoom').innerHTML = t('ctrlZoom');
             document.getElementById('ui-ctrlThresh').innerHTML = t('ctrlThresh');
-            document.getElementById('ui-ctrlDir').innerHTML = t('ctrlDir');
             document.getElementById('ui-ctrlSlow').innerHTML = t('ctrlSlow');
             document.getElementById('ui-ctrlFast').innerHTML = t('ctrlFast');
             document.getElementById('ui-ctrlReset').innerHTML = t('ctrlReset');
@@ -297,6 +317,7 @@
             document.getElementById('ui-targetLabel').innerHTML = t('targetLabel');
             document.getElementById('targetInput').placeholder = t('targetPlaceholder');
             document.getElementById('voice-control-btn').innerHTML = t('btnVoiceOff');
+            document.getElementById('mode-toggle-btn').innerHTML = t('btnModeHoriz');
             document.getElementById('btn-start').innerHTML = t('btnPlay');
             document.getElementById('btn-pause').innerHTML = t('btnPause');
             document.getElementById('btn-stop').innerHTML = t('btnStop');
@@ -311,13 +332,14 @@
         let speedMultiplier = 0.8; 
         const BASE_DELAY = 50;     
         let scanDirection = 1; 
-        let currentY = 0;
+        let currentPos = 0;
+        let explorationMode = 'horizontal'; // 'horizontal' or 'vertical'
         let reverberationNode = null;
-        let leftArrowClickCount = 0;
-        let leftArrowTimer = null;
+        let downArrowClickCount = 0;
+        let downArrowTimer = null;
         let selectedFemaleVoice = null;
-        let lastPianoYMap = {}; 
-        let lastViolinYMap = {}; 
+        let lastPianoMap = {}; 
+        let lastViolinMap = {}; 
         let currentTargetName = 'ngc 660';
         let welcomeActive = true;
         let recognition = null;
@@ -326,12 +348,11 @@
         const high_threshold = 100;
         let low_threshold = 40;
         const resolution = 4;
-        const verticalCooldown = 4; 
+        const scanCooldown = 4; 
         const BOUNDARY_MARGIN = 12; 
 
         function initAudio() {
             if (!audioCtx) {
-                // Cross-browser context
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 audioCtx = new AudioContext();
 
@@ -360,7 +381,6 @@
                 }
             }
             
-            // Safely handle Safari's strict AudioContext suspension
             if (audioCtx.state === 'suspended') {
                 const resumePromise = audioCtx.resume();
                 if (resumePromise !== undefined) {
@@ -372,7 +392,6 @@
         function loadVoices() {
             if ('speechSynthesis' in window) {
                 const voices = window.speechSynthesis.getVoices();
-                // Filter by selected OS language first
                 selectedFemaleVoice = voices.find(v => v.lang.startsWith(currentLang) && 
                     (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('google') || v.name.toLowerCase().includes('natural'))) 
                     || voices.find(v => v.lang.startsWith(currentLang)) 
@@ -389,11 +408,9 @@
 
         function speakMessage(text) {
             if ('speechSynthesis' in window) {
-                // Critical for Safari / VoiceOver compatibility: cancel previous utterances
                 window.speechSynthesis.cancel();
                 
                 let spokenText = text;
-                // Pre-process object names starting with "m" or "M" followed by digits to avoid TTS treating "m" as "meters"
                 if (currentLang === 'ca') {
                     spokenText = spokenText.replace(/\b[mM]\s*(\d+)/g, 'Ema $1');
                 } else if (currentLang === 'es') {
@@ -402,7 +419,6 @@
 
                 const utterance = new SpeechSynthesisUtterance(spokenText);
                 
-                // Set synthesis language property according to detection
                 if (currentLang === 'es') utterance.lang = 'es-ES';
                 else if (currentLang === 'ca') utterance.lang = 'ca-ES';
                 else utterance.lang = 'en-US';
@@ -438,6 +454,32 @@
             }
         });
 
+        function setMode(newMode) {
+            if (explorationMode === newMode) return;
+            explorationMode = newMode;
+            stopAndResetSonification(false);
+            
+            const btn = document.getElementById('mode-toggle-btn');
+            const scanLine = document.getElementById('scan-line');
+            
+            if (explorationMode === 'horizontal') {
+                btn.innerHTML = t('btnModeHoriz');
+                scanLine.style.width = '2px';
+                scanLine.style.height = '100vh';
+                speakMessage(t('switchedToHoriz'));
+            } else {
+                btn.innerHTML = t('btnModeVert');
+                scanLine.style.width = '100vw';
+                scanLine.style.height = '2px';
+                speakMessage(t('switchedToVert'));
+            }
+        }
+
+        function toggleMode() {
+            initAudio();
+            setMode(explorationMode === 'horizontal' ? 'vertical' : 'horizontal');
+        }
+
         function handleTouchStart() {
             initAudio();
             startSonification();
@@ -457,7 +499,6 @@
                 recognition.continuous = true;
                 recognition.interimResults = false;
                 
-                // Map Speech Recognition language to detected locale
                 if (currentLang === 'es') recognition.lang = 'es-ES';
                 else if (currentLang === 'ca') recognition.lang = 'ca-ES';
                 else recognition.lang = 'en-US';
@@ -470,8 +511,14 @@
                     let isStart = command.includes('start') || command.includes('play') || command.includes('iniciar') || command.includes('reproducir') || command.includes('reproduir');
                     let isPause = command.includes('pause') || command.includes('pausar');
                     let isStop = command.includes('stop') || command.includes('reset') || command.includes('detener') || command.includes('aturar') || command.includes('reiniciar');
+                    let isHoriz = command.includes('horizontal') || command.includes('horitzontal');
+                    let isVert = command.includes('vertical');
 
-                    if (isStart) {
+                    if (isHoriz) {
+                        setMode('horizontal');
+                    } else if (isVert) {
+                        setMode('vertical');
+                    } else if (isStart) {
                         handleTouchStart();
                     } else if (isPause) {
                         pauseSonification();
@@ -483,7 +530,6 @@
                 recognition.onerror = (event) => {
                     console.error("Speech recognition error:", event.error);
                     if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-                        // User explicitly denied mic access or service is unavailable
                         isVoiceControlActive = false;
                         btn.classList.remove('active');
                         btn.textContent = t('btnVoiceOff');
@@ -492,7 +538,6 @@
                 };
 
                 recognition.onend = () => {
-                    // Auto-restart to counter Chrome/Safari dropping continuous mode after silence
                     if (isVoiceControlActive) {
                         try { recognition.start(); } catch(e) { console.warn("Recognition restart failed", e); } 
                     }
@@ -536,7 +581,6 @@
                         panner.connect(reverberationNode);
                     }
                 } else {
-                    // Fallback for extremely old browsers without StereoPanner
                     masterGain.connect(audioCtx.destination);
                     if (reverberationNode) {
                         masterGain.connect(reverberationNode);
@@ -658,7 +702,7 @@
                 document.getElementById('status').innerText = `${t('speedStr')}: ${t('defaultSpeed')} (x1.00)`;
                 e.preventDefault();
             } else if (e.shiftKey && (e.key === 'Meta' || e.metaKey)) {
-                const minMultiplier = 16 / BASE_DELAY; // Established visual browser limitation (~16ms)
+                const minMultiplier = 16 / BASE_DELAY; 
                 speedMultiplier *= 0.75;
                 if (speedMultiplier <= minMultiplier) {
                     speedMultiplier = minMultiplier;
@@ -698,50 +742,48 @@
                 }
                 e.preventDefault();
             } else if (e.key === 'ArrowDown') {
-                scanDirection = 1;
-                lastPianoYMap = {};
-                lastViolinYMap = {};
-                if (isSonifying) {
-                    speakMessage(t('downExploration'));
-                    document.getElementById('status').innerText = `${t('statusStr')}: ${t('downExploration')}...`;
-                } else {
-                    startSonification();
+                downArrowClickCount++;
+                if (downArrowClickCount === 1) {
+                    downArrowTimer = setTimeout(() => {
+                        if (downArrowClickCount === 1) {
+                            pauseSonification();
+                        }
+                        downArrowClickCount = 0;
+                    }, 300); 
+                } else if (downArrowClickCount === 2) {
+                    clearTimeout(downArrowTimer);
+                    stopAndResetSonification(true);
+                    downArrowClickCount = 0;
                 }
                 e.preventDefault();
             } else if (e.key === 'ArrowUp') {
+                let simbadUrl = `https://simbad.u-strasbg.fr/simbad/sim-id?Ident=${encodeURIComponent(currentTargetName)}`;
+                window.open(simbadUrl, '_blank');
+                speakMessage(`${t('exploringSimbad')} ${currentTargetName} ${t('inSimbad')}`);
+                document.getElementById('status').innerText = `${t('statusStr')}: ${t('exploringSimbad')} SIMBAD - ${currentTargetName}`;
+                e.preventDefault();
+            } else if (e.key === 'ArrowLeft') {
                 scanDirection = -1;
-                lastPianoYMap = {};
-                lastViolinYMap = {};
+                lastPianoMap = {};
+                lastViolinMap = {};
                 if (isSonifying) {
-                    speakMessage(t('topExploration'));
-                    document.getElementById('status').innerText = `${t('statusStr')}: ${t('topExploration')}...`;
+                    let txt = explorationMode === 'horizontal' ? t('leftExploration') : t('topExploration');
+                    speakMessage(txt);
+                    document.getElementById('status').innerText = `${t('statusStr')}: ${txt}...`;
                 } else {
                     startSonification();
                 }
                 e.preventDefault();
             } else if (e.key === 'ArrowRight') {
-                if (e.shiftKey) {
-                    let simbadUrl = `https://simbad.u-strasbg.fr/simbad/sim-id?Ident=${encodeURIComponent(currentTargetName)}`;
-                    window.open(simbadUrl, '_blank');
-                    speakMessage(`${t('exploringSimbad')} ${currentTargetName} ${t('inSimbad')}`);
-                    document.getElementById('status').innerText = `${t('statusStr')}: ${t('exploringSimbad')} SIMBAD - ${currentTargetName}`;
+                scanDirection = 1;
+                lastPianoMap = {};
+                lastViolinMap = {};
+                if (isSonifying) {
+                    let txt = explorationMode === 'horizontal' ? t('rightExploration') : t('downExploration');
+                    speakMessage(txt);
+                    document.getElementById('status').innerText = `${t('statusStr')}: ${txt}...`;
                 } else {
-                    handleTouchStart();
-                }
-                e.preventDefault();
-            } else if (e.key === 'ArrowLeft') {
-                leftArrowClickCount++;
-                if (leftArrowClickCount === 1) {
-                    leftArrowTimer = setTimeout(() => {
-                        if (leftArrowClickCount === 1) {
-                            pauseSonification();
-                        }
-                        leftArrowClickCount = 0;
-                    }, 300); 
-                } else if (leftArrowClickCount === 2) {
-                    clearTimeout(leftArrowTimer);
-                    stopAndResetSonification(true);
-                    leftArrowClickCount = 0;
+                    startSonification();
                 }
                 e.preventDefault();
             } else if (e.key === 'Enter' && document.activeElement === targetInput) {
@@ -763,23 +805,30 @@
             const container = document.getElementById('map-container');
             const height = container.clientHeight || window.innerHeight;
             const width = container.clientWidth || window.innerWidth;
+            
+            const maxVal = explorationMode === 'horizontal' ? width : height;
+            
+            const minBound = BOUNDARY_MARGIN;
+            const maxBound = Math.floor((maxVal - BOUNDARY_MARGIN) / resolution) * resolution;
 
-            const topBound = BOUNDARY_MARGIN;
-            const bottomBound = Math.floor((height - BOUNDARY_MARGIN) / resolution) * resolution;
-
-            let isResuming = (currentY >= topBound && currentY <= bottomBound);
+            let isResuming = (currentPos >= minBound && currentPos <= maxBound);
 
             if (!isResuming) {
-                currentY = scanDirection === 1 ? topBound : bottomBound;
-                lastPianoYMap = {}; 
-                lastViolinYMap = {};
+                currentPos = scanDirection === 1 ? minBound : maxBound;
+                lastPianoMap = {}; 
+                lastViolinMap = {};
             }
 
             initAudio();
 
-            const dirText = scanDirection === 1 ? t('downExploration') : t('topExploration');
+            let dirText = "";
+            if (explorationMode === 'horizontal') {
+                dirText = scanDirection === 1 ? t('rightExploration') : t('leftExploration');
+            } else {
+                dirText = scanDirection === 1 ? t('downExploration') : t('topExploration');
+            }
             
-            if (isResuming && currentY > topBound && currentY < bottomBound) {
+            if (isResuming && currentPos > minBound && currentPos < maxBound) {
                 const msg = `${t('continuing')}, ${dirText}`;
                 speakMessage(msg);
                 document.getElementById('status').innerText = `${t('statusStr')}: ${msg}...`;
@@ -795,40 +844,49 @@
                 const scanLine = document.getElementById('scan-line');
                 scanLine.style.display = 'block';
 
-                const oneThirdMark = Math.floor(height / 3);
-                const twoThirdMark = Math.floor((height * 2) / 3);
+                const oneThirdMark = Math.floor(maxVal / 3);
+                const twoThirdMark = Math.floor((maxVal * 2) / 3);
 
                 function runScanStep() {
                     if (!isSonifying) return;
                     
                     let actualDelay = Math.max(16, BASE_DELAY * speedMultiplier);
 
-                    if (currentY > bottomBound || currentY < topBound) {
+                    if (currentPos > maxBound || currentPos < minBound) {
                         speakMessage(t('finished'));
                         stopAndResetSonification(false);
                         return;
                     }
 
-                    let processY = currentY; 
-                    scanLine.style.top = processY + 'px';
-
-                    let nextY = processY + (scanDirection * resolution);
-                    if (scanDirection === 1) {
-                        if (processY < oneThirdMark && nextY >= oneThirdMark) speakMessage(t('oneThird'));
-                        if (processY < twoThirdMark && nextY >= twoThirdMark) speakMessage(t('twoThirds'));
+                    let processPos = currentPos; 
+                    if (explorationMode === 'horizontal') {
+                        scanLine.style.left = processPos + 'px';
                     } else {
-                        if (processY > twoThirdMark && nextY <= twoThirdMark) speakMessage(t('twoThirds'));
-                        if (processY > oneThirdMark && nextY <= oneThirdMark) speakMessage(t('oneThird'));
+                        scanLine.style.top = processPos + 'px';
+                    }
+
+                    let nextPos = processPos + (scanDirection * resolution);
+                    if (scanDirection === 1) {
+                        if (processPos < oneThirdMark && nextPos >= oneThirdMark) speakMessage(t('oneThird'));
+                        if (processPos < twoThirdMark && nextPos >= twoThirdMark) speakMessage(t('twoThirds'));
+                    } else {
+                        if (processPos > twoThirdMark && nextPos <= twoThirdMark) speakMessage(t('twoThirds'));
+                        if (processPos > oneThirdMark && nextPos <= oneThirdMark) speakMessage(t('oneThird'));
                     }
 
                     let baseLayer = aladin ? aladin.getBaseImageLayer() : null;
                     let potentialNotes = [];
 
-                    for (let x = BOUNDARY_MARGIN; x < width - BOUNDARY_MARGIN; x += resolution) {
-                        let brightness = 0; 
+                    let crossMin = BOUNDARY_MARGIN;
+                    let crossMax = explorationMode === 'horizontal' ? height - BOUNDARY_MARGIN : width - BOUNDARY_MARGIN;
+
+                    for (let c = crossMin; c < crossMax; c += resolution) {
+                        let brightness = 0;
+                        let x = explorationMode === 'horizontal' ? processPos : c;
+                        let y = explorationMode === 'horizontal' ? c : processPos;
                         
                         if (baseLayer && typeof baseLayer.readPixel === 'function') {
-                            let pix = baseLayer.readPixel(x, processY); 
+                            let pix = baseLayer.readPixel(x, y); 
                             if (pix !== null && pix !== undefined) {
                                 if (Array.isArray(pix)) {
                                     brightness = 0.299 * pix[0] + 0.587 * pix[1] + 0.114 * pix[2];
@@ -839,22 +897,31 @@
                         } 
 
                         if (brightness === 0) {
-                            brightness = (Math.sin(x / 30) + 1) * 35 + (Math.random() * 20);
+                            brightness = (Math.sin(c / 30) + 1) * 35 + (Math.random() * 20);
                         }
 
-                        let positionalFreq = 150 + (x / width) * 1050;
-                        let panValue = (x / width) * 2 - 1; 
-                        let xBucket = Math.floor(x / 12); 
+                        let positionalFreq = 0;
+                        let panValue = 0;
+                        
+                        if (explorationMode === 'horizontal') {
+                            positionalFreq = 150 + ((height - y) / height) * 1050;
+                            panValue = (x / width) * 2 - 1; 
+                        } else {
+                            positionalFreq = 150 + (x / width) * 1050;
+                            panValue = (x / width) * 2 - 1;
+                        }
+                        
+                        let bucket = Math.floor(c / 12); 
 
                         if (brightness >= high_threshold) {
-                            let lastY = lastPianoYMap[xBucket] !== undefined ? lastPianoYMap[xBucket] : -999;
-                            if (Math.abs(processY - lastY) > verticalCooldown) {
-                                potentialNotes.push({ type: 'piano', xBucket, positionalFreq, panValue, brightness });
+                            let lastTracked = lastPianoMap[bucket] !== undefined ? lastPianoMap[bucket] : -999;
+                            if (Math.abs(processPos - lastTracked) > scanCooldown) {
+                                potentialNotes.push({ type: 'piano', bucket, positionalFreq, panValue, brightness });
                             }
                         } else if (brightness > low_threshold && brightness < high_threshold) {
-                            let lastY = lastViolinYMap[xBucket] !== undefined ? lastViolinYMap[xBucket] : -999;
-                            if (Math.abs(processY - lastY) > verticalCooldown) {
-                                potentialNotes.push({ type: 'violin', xBucket, positionalFreq, panValue, brightness });
+                            let lastTracked = lastViolinMap[bucket] !== undefined ? lastViolinMap[bucket] : -999;
+                            if (Math.abs(processPos - lastTracked) > scanCooldown) {
+                                potentialNotes.push({ type: 'violin', bucket, positionalFreq, panValue, brightness });
                             }
                         }
                     }
@@ -870,14 +937,14 @@
                             playTone(note.positionalFreq, note.type, 0.08, note.panValue, note.brightness);
                             
                             if (note.type === 'piano') {
-                                lastPianoYMap[note.xBucket] = processY; 
+                                lastPianoMap[note.bucket] = processPos; 
                             } else {
-                                lastViolinYMap[note.xBucket] = processY;
+                                lastViolinMap[note.bucket] = processPos;
                             }
                         }
                     }
 
-                    currentY = nextY;
+                    currentPos = nextPos;
                     scanInterval = setTimeout(runScanStep, actualDelay);
                 }
 
@@ -895,13 +962,14 @@
         function stopAndResetSonification(speakStopped = true) {
             isSonifying = false;
             if (scanInterval) clearTimeout(scanInterval);
-            currentY = 0; 
+            currentPos = 0; 
             scanDirection = 1;
-            lastPianoYMap = {};
-            lastViolinYMap = {};
+            lastPianoMap = {};
+            lastViolinMap = {};
             const scanLine = document.getElementById('scan-line');
             if (scanLine) {
                 scanLine.style.display = 'none';
+                scanLine.style.left = '0px';
                 scanLine.style.top = '0px';
             }
             if (speakStopped) {
