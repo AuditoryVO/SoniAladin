@@ -18,7 +18,6 @@
         #map-container { position: relative; width: 100vw; flex-grow: 1; }
         #aladin-lite-div { width: 100%; height: 100%; }
         
-        /* Scan-line defaults to horizontal configuration */
         #scan-line { position: absolute; left: 0px; top: 0px; width: 2px; height: 100vh; background-color: rgba(140, 0, 255, 0.7); box-shadow: 0 0 4px rgb(140, 0, 255); pointer-events: none; display: none; z-index: 5; }
         #status { font-weight: bold; color: #a200ff; margin: 0 10px; font-size: 0.9rem; }
 
@@ -50,13 +49,15 @@
         <div class="controls-box">
             <strong id="ui-controlsSummary">Key Controls Summary:</strong>
             <ul>
-                <li id="ui-ctrlVoice"><strong>Simplified Voice Control:</strong> Say "start", "pause", "stop", "horizontal", or "vertical"</li>
-                <li id="ui-ctrlRight"><strong>Right Arrow:</strong> Start or continue right/down exploration</li>
-                <li id="ui-ctrlLeft"><strong>Left Arrow:</strong> Start or continue left/up exploration</li>
-                <li id="ui-ctrlDown"><strong>Down Arrow (Press / Double):</strong> Pause or Stop & Reset</li>
+                <li id="ui-ctrlModes"><strong>Three Modes:</strong> Interactive (Default), Horizontal and Vertical</li>
+                <li id="ui-ctrlDouble"><strong>Double Click:</strong> Identify object on SIMBAD</li>
                 <li id="ui-ctrlUp"><strong>Up Arrow:</strong> Explore the object in SIMBAD</li>
                 <li id="ui-ctrlZoom"><strong>+ / - Keys:</strong> ALADIN Zoom in or Zoom out</li>
-                <li id="ui-ctrlThresh"><strong>SHIFT + (+ / -):</strong> Increase or reduce low threshold</li>
+                <li id="ui-ctrlThresh"><strong>SHIFT + (+ / -):</strong> Increase or reduce violin's threshold</li>
+                <li id="ui-ctrlVoice"><strong>Simplified Voice Control:</strong> Say "start", "pause", "stop", "horizontal", "vertical", or "interactive"</li>
+                <li id="ui-ctrlRight"><strong>Right Arrow:</strong> Start or continue right/down exploration</li>
+                <li id="ui-ctrlLeft"><strong>Left Arrow:</strong> Change direction. Start or continue left/up exploration</li>
+                <li id="ui-ctrlDown"><strong>Down Arrow (Press / Double):</strong> Pause or Stop & Reset</li>
                 <li id="ui-ctrlSlow"><strong>SHIFT + Control Key:</strong> Slow down exploration (-25%)</li>
                 <li id="ui-ctrlFast"><strong>SHIFT + Command Key:</strong> Speed up exploration (+25%)</li>
                 <li id="ui-ctrlReset"><strong>SHIFT + Option / Alt Key:</strong> Reset exploration speed</li>
@@ -72,7 +73,7 @@
         </div>
         <div id="action-buttons">
             <button id="voice-control-btn" onclick="toggleVoiceControl()" aria-label="Toggle Voice Control">Voice: OFF</button>
-            <button id="mode-toggle-btn" onclick="toggleMode()" aria-label="Toggle Exploration Mode">Mode: Horizontal</button>
+            <button id="mode-toggle-btn" onclick="toggleMode()" aria-label="Toggle Exploration Mode">Mode: Interactive</button>
             <button id="btn-start" onclick="handleTouchStart()" aria-label="Play Sonification">Play</button>
             <button id="btn-pause" onclick="pauseSonification()" aria-label="Pause Sonification">Pause</button>
             <button id="btn-stop" onclick="stopAndResetSonification(true)" aria-label="Stop Sonification">Stop</button>
@@ -89,12 +90,12 @@
         // --- Internationalization (i18n) Logic ---
         const i18n = {
             en: {
-                welcomeAudio: "Welcome to SoniAladin. Exploring Aladin Sky Atlas through sound. Use the keyboard or activate voice control to start, pause, stop, and switch modes. Key controls summary: Right Arrow for right or down exploration. Left Arrow for left or up exploration. Down Arrow to pause or stop and reset. Up Arrow to explore the object in SIMBAD. Plus and minus keys for zoom in or out. Shift plus Control key to slow down. Shift plus Command key to speed up. Shift plus Option or Alt key to reset speed. Shift plus plus or minus to adjust the low threshold. Press space bar to start SoniAladin.",
+                welcomeAudio: "Welcome to SoniAladin. Exploring Aladin Sky Atlas through sound. It features three exploration modes: horizontal, vertical, and interactive, with interactive mode active by default. Double click anywhere on an object to identify it on SIMBAD. Use the keyboard or activate voice control to start, pause, stop, and switch modes. Key controls summary: Right Arrow for right or down exploration. Left Arrow for left or up exploration. Down Arrow to pause or stop and reset. Up Arrow to explore the object in SIMBAD. Plus and minus keys for zoom in or out. Shift plus Control key to slow down. Shift plus Command key to speed up. Shift plus Option or Alt key to reset speed. Shift plus plus or minus to adjust the violin's threshold. Press space bar to start SoniAladin.",
                 started: "Exploring",
-                readyStatus: "Status: Ready. Use buttons or voice control to begin.",
+                readyStatus: "Status: Ready. Interactive mode active by default.",
                 continuing: "Continuing Sonification",
                 starting: "Starting SoniAladin",
-                voiceOnStatus: "Voice control activated. Say play, pause, stop, horizontal, or vertical.",
+                voiceOnStatus: "Voice control activated. Say play, pause, stop, horizontal, vertical, or interactive.",
                 voiceOffStatus: "Voice control deactivated",
                 slowingDown: "Slowing down",
                 defaultSpeed: "Default speed",
@@ -109,6 +110,8 @@
                 leftExploration: "left-wise",
                 downExploration: "down-wise",
                 topExploration: "top-wise",
+                interactiveActive: "Interactive mode active. Move cursor over image.",
+                objectNotFound: "This object was not found on Simbad",
                 exploringSimbad: "Exploring",
                 inSimbad: "in simbad",
                 oneThird: "One third",
@@ -121,18 +124,22 @@
                 statusStr: "Status",
                 switchedToHoriz: "Switched to horizontal mode",
                 switchedToVert: "Switched to vertical mode",
+                switchedToInter: "Switched to interactive mode",
                 // UI elements
                 subtitle: "Exploring Aladin Sky Atlas through sound",
                 playAudioBtn: "Play Audio Instructions",
                 controlsSummary: "Key Controls Summary:",
-                ctrlVoice: "<strong>Simplified Voice Control:</strong> Say 'start', 'pause', 'stop', 'horizontal', or 'vertical'",
+                ctrlModes: "<strong>Three Modes:</strong> Interactive (default), Horizontal and Vertical",
+                ctrlDouble: "<strong>Double Click:</strong> Identify object on SIMBAD",
+                ctrlInteractive: "<strong>Interactive Mode:</strong> Move cursor over the image to hear objects under the cursor instantly",
+                ctrlVoice: "<strong>Simplified Voice Control:</strong> Say 'start', 'pause', 'stop', 'horizontal', 'vertical', or 'interactive'",
                 ctrlVoiceUnsupported: "<strong>Simplified Voice Control:</strong> Not supported in your current browser",
                 ctrlRight: "<strong>Right Arrow:</strong> Start or continue right/down exploration",
-                ctrlLeft: "<strong>Left Arrow:</strong> Start or continue left/up exploration",
+                ctrlLeft: "<strong>Left Arrow:</strong> Change direction. Start or continue left/up exploration",
                 ctrlDown: "<strong>Down Arrow (Press / Double):</strong> Pause or Stop & Reset",
                 ctrlUp: "<strong>Up Arrow:</strong> Explore the object in SIMBAD",
                 ctrlZoom: "<strong>+ / - Keys:</strong> ALADIN Zoom in or Zoom out",
-                ctrlThresh: "<strong>SHIFT + (+ / -):</strong> Increase or reduce low threshold",
+                ctrlThresh: "<strong>SHIFT + (+ / -):</strong> Increase or reduce violin's threshold",
                 ctrlSlow: "<strong>SHIFT + Control Key:</strong> Slow down exploration (-25%)",
                 ctrlFast: "<strong>SHIFT + Command Key:</strong> Speed up exploration (+25%)",
                 ctrlReset: "<strong>SHIFT + Option / Alt Key:</strong> Reset exploration speed (Default speed)",
@@ -143,19 +150,20 @@
                 btnVoiceOn: "Voice: ON",
                 btnModeHoriz: "Mode: Horizontal",
                 btnModeVert: "Mode: Vertical",
+                btnModeInter: "Mode: Interactive",
                 btnPlay: "Play",
                 btnPause: "Pause",
                 btnStop: "Stop",
-                statusWaiting: "Status: Waiting to start...",
+                statusWaiting: "Status: Interactive mode active. Move cursor over image.",
                 navigatedTo: "Navigated to"
             },
             es: {
-                welcomeAudio: "Bienvenido a SoniAladin. Explorando el Atlas Celeste Aladin a través del sonido. Usa el teclado o activa el control por voz para iniciar, pausar, detener y cambiar modos. Resumen de controles: Flecha derecha para exploración hacia la derecha o abajo. Flecha izquierda para exploración hacia la izquierda o arriba. Flecha abajo para pausar o detener y reiniciar. Flecha arriba para explorar en SIMBAD. Teclas más y menos para acercar o alejar. Mayús más Control para ir más lento. Mayús más Comando para ir más rápido. Mayús más Opción o Alt para velocidad por defecto. Mayús más tecla más o menos para ajustar el umbral bajo. Presiona la barra espaciadora para iniciar.",
+                welcomeAudio: "Bienvenido a SoniAladin. Explorando el Atlas Celeste Aladin a través del sonido. Cuenta con tres modos de exploración: horizontal, vertical e interactivo, siendo el modo interactivo el activo por defecto. Haz doble clic en cualquier objeto para identificarlo en SIMBAD y anunciar su nombre por voz. Usa el teclado o activa el control por voz para iniciar, pausar, detener y cambiar modos. Resumen de controles: Flecha derecha para exploración hacia la derecha o abajo. Flecha izquierda para exploración hacia la izquierda o arriba. Flecha abajo para pausar o detener y reiniciar. Flecha arriba para explorar en SIMBAD. Teclas más y menos para acercar o alejar. Mayús más Control para ir más lento. Mayús más Comando para ir más rápido. Mayús más Opción o Alt para velocidad por defecto. Mayús más tecla más o menos para ajustar el umbral bajo. Presiona la barra espaciadora para iniciar.",
                 started: "Explorando",
-                readyStatus: "Estado: Listo. Usa los botones o el control por voz para comenzar.",
+                readyStatus: "Estado: Listo. Modo interactivo activo por defecto.",
                 continuing: "Continuando sonificación",
                 starting: "Iniciando SoniAladin",
-                voiceOnStatus: "Control por voz activado. Di reproducir, pausar, detener, horizontal o vertical.",
+                voiceOnStatus: "Control por voz activado. Di reproducir, pausar, detener, horizontal, vertical o interactivo.",
                 voiceOffStatus: "Control por voz desactivado",
                 slowingDown: "Reduciendo velocidad",
                 defaultSpeed: "Velocidad por defecto",
@@ -170,6 +178,8 @@
                 leftExploration: "hacia la izquierda",
                 downExploration: "hacia abajo",
                 topExploration: "hacia arriba",
+                interactiveActive: "Modo interactivo activo. Mueve el cursor sobre la imagen.",
+                objectNotFound: "Este objeto no se ha encontrado en Simbad",
                 exploringSimbad: "Explorando",
                 inSimbad: "en simbad",
                 oneThird: "Un tercio",
@@ -182,11 +192,15 @@
                 statusStr: "Estado",
                 switchedToHoriz: "Cambiado a modo horizontal",
                 switchedToVert: "Cambiado a modo vertical",
+                switchedToInter: "Cambiado a modo interactivo",
                 // UI elements
                 subtitle: "Explorando el Atlas Celeste Aladin a través del sonido",
                 playAudioBtn: "Reproducir Instrucciones de Audio",
                 controlsSummary: "Resumen de Controles:",
-                ctrlVoice: "<strong>Control por Voz Simplificado:</strong> Di 'iniciar', 'pausar', 'detener', 'horizontal' o 'vertical'",
+                ctrlModes: "<strong>Tres Modos:</strong> Horizontal, Vertical e Interactivo (Por defecto)",
+                ctrlDouble: "<strong>Doble Clic:</strong> Identificar objeto en SIMBAD y anunciar nombre por voz",
+                ctrlInteractive: "<strong>Modo Interactivo:</strong> Mueve el cursor sobre la imagen para escuchar objetos bajo el cursor al instante",
+                ctrlVoice: "<strong>Control por Voz Simplificado:</strong> Di 'iniciar', 'pausar', 'detener', 'horizontal', 'vertical' o 'interactivo'",
                 ctrlVoiceUnsupported: "<strong>Control por Voz Simplificado:</strong> No compatible en tu navegador actual",
                 ctrlRight: "<strong>Flecha Derecha:</strong> Iniciar o continuar exploración derecha/abajo",
                 ctrlLeft: "<strong>Flecha Izquierda:</strong> Iniciar o continuar exploración izquierda/arriba",
@@ -202,21 +216,22 @@
                 targetPlaceholder: "Escribe el nombre de un objeto",
                 btnVoiceOff: "Voz: DESACT.",
                 btnVoiceOn: "Voz: ACTIVA",
-                btnModeHoriz: "Modo: Horizontal",
-                btnModeVert: "Modo: Vertical",
+                btnModeHoriz: "Mode: Horizontal",
+                btnModeVert: "Mode: Vertical",
+                btnModeInter: "Mode: Interactivo",
                 btnPlay: "Reproducir",
                 btnPause: "Pausar",
                 btnStop: "Detener",
-                statusWaiting: "Estado: Esperando para iniciar...",
+                statusWaiting: "Estado: Modo interactivo activo. Mueve el cursor sobre la imagen.",
                 navigatedTo: "Navegado a"
             },
             ca: {
-                welcomeAudio: "Benvingut a SoniAladin. Explorant l'Atles Celest Aladin a través del so. Utilitza el teclat o activa el control per veu per iniciar, pausar, aturar i canviar de mode. Resum de controls: Fletxa dreta per a exploració cap a la dreta o avall. Fletxa esquerra per a exploració cap a l'esquerra o amunt. Fletxa avall per pausar o aturar i reiniciar. Fletxa amunt per explorar a SIMBAD. Tecles més i menys per apropar o allunyar. Majúscules més Control per anar més a poc a poc. Majúscules més Comandament per anar més ràpid. Majúscules més Opció o Alt per a la velocitat per defecte. Majúscules més tecla més o menys per ajustar el llindar baix. Prem la barra espaiadora per iniciar.",
+                welcomeAudio: "Benvingut a SoniAladin. Explorant l'Atles Celest Aladin a través del so. Disposa de tres modes d'exploració: horitzontal, vertical i interactiu, sent el mode interactiu l'actiu per defecte. Fes doble clic a qualsevol objecte per identificar-lo a SIMBAD i anunciar el seu nom per veu. Utilitza el teclat o activa el control per veu per iniciar, pausar, aturar i canviar de mode. Resum de controls: Fletxa dreta per a exploració cap a la dreta o avall. Fletxa esquerra per a exploració cap a l'esquerra o amunt. Fletxa avall per pausar o aturar i reiniciar. Fletxa amunt per explorar a SIMBAD. Tecles més i menys per apropar o allunyar. Majúscules més Control per anar més a poc a poc. Majúscules més Comandament per anar més ràpid. Majúscules més Opció o Alt per a la velocitat per defecte. Majúscules més tecla més o menys per ajustar el llindar baix. Prem la barra espaiadora per iniciar.",
                 started: "Explorant",
-                readyStatus: "Estat: Llest. Utilitza els botons o el control per veu per començar.",
+                readyStatus: "Estat: Llest. Mode interactiu actiu per defecte.",
                 continuing: "Continuant sonificació",
                 starting: "Iniciant SoniAladin",
-                voiceOnStatus: "Control per veu activat. Digues reproduir, pausar, aturar, horitzontal o vertical.",
+                voiceOnStatus: "Control per veu activat. Digues reproduir, pausar, aturar, horitzontal, vertical o interactiu.",
                 voiceOffStatus: "Control per veu desactivat",
                 slowingDown: "Reduint velocitat",
                 defaultSpeed: "Velocitat per defecte",
@@ -231,6 +246,8 @@
                 leftExploration: "cap a l'esquerra",
                 downExploration: "cap avall",
                 topExploration: "cap amunt",
+                interactiveActive: "Mode interactiu actiu. Mou el cursor sobre la imatge.",
+                objectNotFound: "Aquest objecte no s'ha trobat a Simbad",
                 exploringSimbad: "Explorant",
                 inSimbad: "a simbad",
                 oneThird: "Un terç",
@@ -243,11 +260,15 @@
                 statusStr: "Estat",
                 switchedToHoriz: "Canviat a mode horitzontal",
                 switchedToVert: "Canviat a mode vertical",
+                switchedToInter: "Canviat a mode interactiu",
                 // UI elements
                 subtitle: "Explorant l'Atles Celest Aladin a través del so",
                 playAudioBtn: "Reproduir Instruccions d'Àudio",
                 controlsSummary: "Resum de Controls:",
-                ctrlVoice: "<strong>Control per Veu Simplificat:</strong> Digues 'iniciar', 'pausar', 'aturar', 'horitzontal' o 'vertical'",
+                ctrlModes: "<strong>Tres Modes:</strong> Horitzontal, Vertical i Interactiu (Per defecte)",
+                ctrlDouble: "<strong>Doble Clic:</strong> Identificar objecte a SIMBAD i anunciar nom per veu",
+                ctrlInteractive: "<strong>Mode Interactiu:</strong> Mou el cursor sobre la imatge per escoltar objectes sota el cursor a l'instant",
+                ctrlVoice: "<strong>Control per Veu Simplificat:</strong> Digues 'iniciar', 'pausar', 'aturar', 'horitzontal', 'vertical' o 'interactiu'",
                 ctrlVoiceUnsupported: "<strong>Control per Veu Simplificat:</strong> No compatible amb el teu navegador actual",
                 ctrlRight: "<strong>Fletxa Dreta:</strong> Iniciar o continuar exploració dreta/avall",
                 ctrlLeft: "<strong>Fletxa Esquerra:</strong> Iniciar o continuar exploració esquerra/amunt",
@@ -265,10 +286,11 @@
                 btnVoiceOn: "Veu: ACTIVA",
                 btnModeHoriz: "Mode: Horitzontal",
                 btnModeVert: "Mode: Vertical",
+                btnModeInter: "Mode: Interactiu",
                 btnPlay: "Reproduir",
                 btnPause: "Pausar",
                 btnStop: "Aturar",
-                statusWaiting: "Estat: Esperant per iniciar...",
+                statusWaiting: "Estat: Mode interactiu actiu. Mou el cursor sobre la imatge.",
                 navigatedTo: "Navegat a"
             }
         };
@@ -296,7 +318,6 @@
             document.getElementById('play-audio-btn').innerHTML = t('playAudioBtn');
             document.getElementById('ui-controlsSummary').innerHTML = t('controlsSummary');
             
-            // Adjust Voice Control UI based on browser support
             if (!supportsSpeech) {
                 document.getElementById('ui-ctrlVoice').innerHTML = t('ctrlVoiceUnsupported');
                 document.getElementById('voice-control-btn').style.display = 'none';
@@ -304,6 +325,9 @@
                 document.getElementById('ui-ctrlVoice').innerHTML = t('ctrlVoice');
             }
 
+            document.getElementById('ui-ctrlModes').innerHTML = t('ctrlModes');
+            document.getElementById('ui-ctrlDouble').innerHTML = t('ctrlDouble');
+            document.getElementById('ui-ctrlInteractive').innerHTML = t('ctrlInteractive');
             document.getElementById('ui-ctrlRight').innerHTML = t('ctrlRight');
             document.getElementById('ui-ctrlLeft').innerHTML = t('ctrlLeft');
             document.getElementById('ui-ctrlDown').innerHTML = t('ctrlDown');
@@ -317,7 +341,7 @@
             document.getElementById('ui-targetLabel').innerHTML = t('targetLabel');
             document.getElementById('targetInput').placeholder = t('targetPlaceholder');
             document.getElementById('voice-control-btn').innerHTML = t('btnVoiceOff');
-            document.getElementById('mode-toggle-btn').innerHTML = t('btnModeHoriz');
+            document.getElementById('mode-toggle-btn').innerHTML = t('btnModeInter');
             document.getElementById('btn-start').innerHTML = t('btnPlay');
             document.getElementById('btn-pause').innerHTML = t('btnPause');
             document.getElementById('btn-stop').innerHTML = t('btnStop');
@@ -333,7 +357,7 @@
         const BASE_DELAY = 50;     
         let scanDirection = 1; 
         let currentPos = 0;
-        let explorationMode = 'horizontal'; // 'horizontal' or 'vertical'
+        let explorationMode = 'interactive'; // Interactive mode active by default
         let reverberationNode = null;
         let downArrowClickCount = 0;
         let downArrowTimer = null;
@@ -442,7 +466,10 @@
             initAudio();
             welcomeActive = false;
             document.getElementById('welcome-screen').style.display = 'none';
-            speakMessage(t('starting'));
+            
+            // Announce the default target object name upon starting
+            speakMessage(currentTargetName);
+            
             document.getElementById('status').innerText = t('readyStatus');
             targetInput.focus();
         }
@@ -467,17 +494,28 @@
                 scanLine.style.width = '2px';
                 scanLine.style.height = '100vh';
                 speakMessage(t('switchedToHoriz'));
-            } else {
+            } else if (explorationMode === 'vertical') {
                 btn.innerHTML = t('btnModeVert');
                 scanLine.style.width = '100vw';
                 scanLine.style.height = '2px';
                 speakMessage(t('switchedToVert'));
+            } else if (explorationMode === 'interactive') {
+                btn.innerHTML = t('btnModeInter');
+                scanLine.style.display = 'none';
+                speakMessage(t('switchedToInter'));
+                document.getElementById('status').innerText = `${t('statusStr')}: ${t('interactiveActive')}`;
             }
         }
 
         function toggleMode() {
             initAudio();
-            setMode(explorationMode === 'horizontal' ? 'vertical' : 'horizontal');
+            if (explorationMode === 'horizontal') {
+                setMode('vertical');
+            } else if (explorationMode === 'vertical') {
+                setMode('interactive');
+            } else {
+                setMode('horizontal');
+            }
         }
 
         function handleTouchStart() {
@@ -513,11 +551,14 @@
                     let isStop = command.includes('stop') || command.includes('reset') || command.includes('detener') || command.includes('aturar') || command.includes('reiniciar');
                     let isHoriz = command.includes('horizontal') || command.includes('horitzontal');
                     let isVert = command.includes('vertical');
+                    let isInter = command.includes('interactive') || command.includes('interactivo') || command.includes('interactiu');
 
                     if (isHoriz) {
                         setMode('horizontal');
                     } else if (isVert) {
                         setMode('vertical');
+                    } else if (isInter) {
+                        setMode('interactive');
                     } else if (isStart) {
                         handleTouchStart();
                     } else if (isPause) {
@@ -675,6 +716,96 @@
             }
         });
 
+        // --- Interactive Mode Mousemove Listener ---
+        let lastMouseMoveTime = 0;
+        const MOUSE_THROTTLE = 45; // ms
+
+        document.getElementById('map-container').addEventListener('mousemove', (e) => {
+            if (explorationMode !== 'interactive' || welcomeActive) return;
+            
+            const now = Date.now();
+            if (now - lastMouseMoveTime < MOUSE_THROTTLE) return;
+            lastMouseMoveTime = now;
+
+            initAudio();
+
+            const container = document.getElementById('map-container');
+            const rect = container.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const height = container.clientHeight || window.innerHeight;
+            const width = container.clientWidth || window.innerWidth;
+
+            let baseLayer = aladin ? aladin.getBaseImageLayer() : null;
+            let brightness = 0;
+            
+            if (baseLayer && typeof baseLayer.readPixel === 'function') {
+                let pix = baseLayer.readPixel(x, y); 
+                if (pix !== null && pix !== undefined) {
+                    if (Array.isArray(pix)) {
+                        brightness = 0.299 * pix[0] + 0.587 * pix[1] + 0.114 * pix[2];
+                    } else {
+                        brightness = Number(pix);
+                    }
+                }
+            } 
+
+            if (brightness === 0) {
+                brightness = (Math.sin(y / 30) + 1) * 35 + (Math.random() * 20);
+            }
+
+            if (brightness > low_threshold) {
+                let positionalFreq = 150 + ((height - y) / height) * 1050;
+                let panValue = (x / width) * 2 - 1;
+                let type = brightness >= high_threshold ? 'piano' : 'violin';
+                playTone(positionalFreq, type, 0.08, panValue, brightness);
+            }
+        });
+
+        // --- Double Click Object Identification (SIMBAD Query) ---
+        document.getElementById('map-container').addEventListener('dblclick', (e) => {
+            if (welcomeActive || !aladin) return;
+            initAudio();
+
+            const container = document.getElementById('map-container');
+            const rect = container.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            let raDec = aladin.pix2world(x, y);
+            if (!raDec) return;
+
+            // Query SIMBAD using coordinate object { ra, dec }
+            A.catalogFromSimbad({ ra: raDec[0], dec: raDec[1] }, 0.01, {}, (catalog) => {
+                let sources = catalog ? catalog.getSources() : [];
+                if (sources && sources.length > 0) {
+                    let src = sources[0];
+                    let objName = (src.data && (src.data.main_id || src.data.ID)) || src.name || src.popupTitle;
+                    if (!objName && src.data) {
+                        for (let key in src.data) {
+                            if (typeof src.data[key] === 'string' && src.data[key].trim().length > 0) {
+                                objName = src.data[key];
+                                break;
+                            }
+                        }
+                    }
+                    if (!objName) {
+                        objName = raDec[0].toFixed(4) + " " + raDec[1].toFixed(4);
+                    }
+                    currentTargetName = objName;
+                    speakMessage(objName);
+                    document.getElementById('status').innerText = `${t('statusStr')}: Identified ${objName} (SIMBAD)`;
+                } else {
+                    speakMessage(t('objectNotFound'));
+                    document.getElementById('status').innerText = `${t('statusStr')}: ${t('objectNotFound')}`;
+                }
+            }, () => {
+                speakMessage(t('objectNotFound'));
+                document.getElementById('status').innerText = `${t('statusStr')}: ${t('objectNotFound')}`;
+            });
+        });
+
         document.addEventListener('keydown', (e) => {
             initAudio();
             if (welcomeActive) {
@@ -766,11 +897,11 @@
                 scanDirection = -1;
                 lastPianoMap = {};
                 lastViolinMap = {};
-                if (isSonifying) {
+                if (isSonifying && explorationMode !== 'interactive') {
                     let txt = explorationMode === 'horizontal' ? t('leftExploration') : t('topExploration');
                     speakMessage(txt);
                     document.getElementById('status').innerText = `${t('statusStr')}: ${txt}...`;
-                } else {
+                } else if (explorationMode !== 'interactive') {
                     startSonification();
                 }
                 e.preventDefault();
@@ -778,11 +909,11 @@
                 scanDirection = 1;
                 lastPianoMap = {};
                 lastViolinMap = {};
-                if (isSonifying) {
+                if (isSonifying && explorationMode !== 'interactive') {
                     let txt = explorationMode === 'horizontal' ? t('rightExploration') : t('downExploration');
                     speakMessage(txt);
                     document.getElementById('status').innerText = `${t('statusStr')}: ${txt}...`;
-                } else {
+                } else if (explorationMode !== 'interactive') {
                     startSonification();
                 }
                 e.preventDefault();
@@ -792,6 +923,10 @@
                     currentTargetName = targetName;
                     aladin.gotoObject(targetName);
                     stopAndResetSonification(false);
+                    
+                    // Announce the typed object name via voice
+                    speakMessage(targetName);
+                    
                     document.getElementById('status').innerText = `${t('statusStr')}: ${t('navigatedTo')} ${targetName}.`;
                     targetInput.value = ''; 
                 }
@@ -800,6 +935,12 @@
         });
 
         function startSonification() {
+            if (explorationMode === 'interactive') {
+                speakMessage(t('interactiveActive'));
+                document.getElementById('status').innerText = `${t('statusStr')}: ${t('interactiveActive')}`;
+                return;
+            }
+
             if (isSonifying) return;
             
             const container = document.getElementById('map-container');
@@ -807,7 +948,6 @@
             const width = container.clientWidth || window.innerWidth;
             
             const maxVal = explorationMode === 'horizontal' ? width : height;
-            
             const minBound = BOUNDARY_MARGIN;
             const maxBound = Math.floor((maxVal - BOUNDARY_MARGIN) / resolution) * resolution;
 
@@ -967,7 +1107,7 @@
             lastPianoMap = {};
             lastViolinMap = {};
             const scanLine = document.getElementById('scan-line');
-            if (scanLine) {
+            if (scanLine && explorationMode !== 'interactive') {
                 scanLine.style.display = 'none';
                 scanLine.style.left = '0px';
                 scanLine.style.top = '0px';
