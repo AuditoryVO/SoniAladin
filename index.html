@@ -84,7 +84,7 @@
     </div>
 
     <script>
-        // --- Internationalization (i18n) Logic ---
+        // --- Internationalization (i18n) Logic ---[cite: 1]
         const i18n = {
             en: {
                 welcomeAudio: "Welcome to SoniAladin. Exploring Aladin Sky Atlas through sound. Interactive mode is active by default. Move your cursor or finger across the screen to hear objects instantly.",
@@ -345,6 +345,7 @@
         let welcomeActive = true;
         let recognition = null;
         let isVoiceControlActive = false;
+        let currentUtterance = null; // Global reference to prevent iOS garbage collection crash[cite: 1]
 
         const high_threshold = 100;
         let low_threshold = 40;
@@ -381,13 +382,12 @@
                 }
             }
             
-            // Crucial for mobile / iOS: always ensure audio context is running
             if (audioCtx.state === 'suspended') {
                 audioCtx.resume().catch(e => console.warn("AudioContext resume error:", e));
             }
         }
 
-        // Global listeners to guarantee AudioContext activation on mobile touches/clicks
+        // Keep audio context alive across mobile touch/click events[cite: 1]
         ['touchstart', 'click', 'keydown'].forEach(evt => {
             window.addEventListener(evt, () => {
                 if (audioCtx && audioCtx.state === 'suspended') {
@@ -425,6 +425,7 @@
                 }
 
                 const utterance = new SpeechSynthesisUtterance(spokenText);
+                currentUtterance = utterance; // Prevents iOS Safari garbage collection bug[cite: 1]
                 
                 if (currentLang === 'es') utterance.lang = 'es-ES';
                 else if (currentLang === 'ca') utterance.lang = 'ca-ES';
@@ -436,6 +437,10 @@
                 utterance.rate = 1.0;
                 utterance.pitch = 1.1; 
                 utterance.volume = 0.5;
+
+                utterance.onend = () => { currentUtterance = null; };
+                utterance.onerror = () => { currentUtterance = null; };
+
                 window.speechSynthesis.speak(utterance);
             }
         }
@@ -520,7 +525,7 @@
 
             if (!isVoiceControlActive) {
                 recognition = new SpeechRecognitionNative();
-                recognition.continuous = true;
+                recognition.continuous = false; // Set to false for robust mobile restart handling[cite: 1]
                 recognition.interimResults = false;
                 
                 if (currentLang === 'es') recognition.lang = 'es-ES';
@@ -528,7 +533,6 @@
                 else recognition.lang = 'en-US';
 
                 recognition.onresult = (event) => {
-                    // Ensure audio context remains active after recognition events
                     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
                     
                     const lastResult = event.results[event.results.length - 1];
@@ -567,9 +571,14 @@
                     }
                 };
 
+                // Debounced safe restart for mobile webkit speech recognition[cite: 1]
                 recognition.onend = () => {
                     if (isVoiceControlActive) {
-                        try { recognition.start(); } catch(e) { console.warn("Recognition restart failed", e); } 
+                        setTimeout(() => {
+                            if (isVoiceControlActive) {
+                                try { recognition.start(); } catch(e) { console.warn("Recognition restart skipped", e); }
+                            }
+                        }, 300);
                     }
                 };
 
@@ -583,10 +592,10 @@
                     console.error("Failed to start speech recognition", e);
                 }
             } else {
-                if (recognition) {
-                    recognition.stop();
-                }
                 isVoiceControlActive = false;
+                if (recognition) {
+                    try { recognition.stop(); } catch(e) {}
+                }
                 btn.classList.remove('active');
                 btn.textContent = t('btnVoiceOff');
                 speakMessage(t('voiceOffStatus'));
@@ -691,7 +700,7 @@
 
         const targetInput = document.getElementById('targetInput');
 
-        // --- Unified Interactive Mode Handler (Mouse & Touch Support) ---
+        // --- Interactive Mode Handler (Mouse & Mobile Touch Support) ---[cite: 1]
         let lastMoveTime = 0;
         const MOVE_THROTTLE = 45; // ms
 
@@ -718,11 +727,7 @@
             if (baseLayer && typeof baseLayer.readPixel === 'function') {
                 let pix = baseLayer.readPixel(x, y); 
                 if (pix !== null && pix !== undefined) {
-                    if (Array.isArray(pix)) {
-                        brightness = 0.299 * pix[0] + 0.587 * pix[1] + 0.114 * pix[2];
-                    } else {
-                        brightness = Number(pix);
-                    }
+                    brightness = Array.isArray(pix) ? (0.299 * pix[0] + 0.587 * pix[1] + 0.114 * pix[2]) : Number(pix);
                 }
             } 
 
@@ -744,7 +749,6 @@
             handleInteractiveMove(e.clientX, e.clientY);
         });
 
-        // Added touch support so mobile users can drag their finger to explore interactively
         mapContainer.addEventListener('touchmove', (e) => {
             if (e.touches && e.touches.length > 0) {
                 handleInteractiveMove(e.touches[0].clientX, e.touches[0].clientY);
@@ -757,7 +761,7 @@
             }
         }, { passive: true });
 
-        // --- Double Tap / Double Click Object Identification (SIMBAD Query) ---
+        // --- Double Tap / Double Click Object Identification (SIMBAD Query) ---[cite: 1]
         function handleObjectIdentification(clientX, clientY) {
             if (welcomeActive || !aladin) return;
             initAudio();
@@ -801,7 +805,6 @@
             handleObjectIdentification(e.clientX, e.clientY);
         });
 
-        // Double tap support for mobile screens
         let lastTapTime = 0;
         mapContainer.addEventListener('touchend', (e) => {
             const currentTime = new Date().getTime();
