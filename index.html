@@ -60,7 +60,7 @@
                 <li id="ui-ctrlDown"><strong>Down Arrow (Press / Double):</strong> Pause or Stop & Reset</li>
             </ul>
         </div>
-        <button id="start-prompt" aria-label="Start SoniAladin">Click here or touch to start SoniAladin</button>
+        <button id="start-prompt" aria-label="Start SoniAladin">Click here or press spacebar to start SoniAladin</button>
     </div>
 
     <div id="controls">
@@ -205,9 +205,9 @@
                 targetPlaceholder: "Escribe el nombre de un objeto",
                 btnVoiceOff: "Voz: DESACT.",
                 btnVoiceOn: "Voz: ACTIVA",
-                btnModeHoriz: "Mode: Horizontal",
-                btnModeVert: "Mode: Vertical",
-                btnModeInter: "Mode: Interactivo",
+                btnModeHoriz: "Modo: Horizontal",
+                btnModeVert: "Modo: Vertical",
+                btnModeInter: "Modo: Interactivo",
                 btnPlay: "Reproducir",
                 btnPause: "Pausar",
                 btnStop: "Detener",
@@ -281,9 +281,13 @@
         };
 
         let currentLang = 'en'; 
-        const userLang = (navigator.language || navigator.userLanguage).slice(0, 2).toLowerCase();
-        if (['en', 'es', 'ca'].includes(userLang)) {
-            currentLang = userLang;
+        const userLang = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
+        if (userLang.startsWith('es')) {
+            currentLang = 'es';
+        } else if (userLang.startsWith('ca')) {
+            currentLang = 'ca';
+        } else if (userLang.startsWith('en')) {
+            currentLang = 'en';
         }
 
         function t(key) {
@@ -490,6 +494,11 @@
             const btnPause = document.getElementById('btn-pause');
             const btnStop = document.getElementById('btn-stop');
             
+            // Ensure play, pause, and stop buttons always follow the current language
+            btnStart.innerHTML = t('btnPlay');
+            btnPause.innerHTML = t('btnPause');
+            btnStop.innerHTML = t('btnStop');
+            
             if (explorationMode === 'horizontal') {
                 btn.innerHTML = t('btnModeHoriz');
                 scanLine.style.width = '2px';
@@ -587,7 +596,6 @@
                     };
 
                     recognition.onend = () => {
-                        // Auto-restart cleanly if voice control toggle is still active
                         if (isVoiceControlActive && recognition) {
                             try {
                                 recognition.start();
@@ -719,9 +727,8 @@
 
         const targetInput = document.getElementById('targetInput');
 
-        // --- Interactive Mode Handler (Mouse & Mobile Touch Support) ---
         let lastMoveTime = 0;
-        const MOVE_THROTTLE = 45; // ms
+        const MOVE_THROTTLE = 45;
 
         function handleInteractiveMove(clientX, clientY) {
             if (explorationMode !== 'interactive' || welcomeActive) return;
@@ -780,7 +787,6 @@
             }
         }, { passive: true });
 
-        // --- Double Tap / Double Click Object Identification (SIMBAD Query) ---
         function handleObjectIdentification(clientX, clientY) {
             if (welcomeActive || !aladin) return;
             initAudio();
