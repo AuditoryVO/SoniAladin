@@ -8,8 +8,8 @@ This research has made use of "Aladin sky atlas" developed at CDS, Strasbourg Ob
 
 This research has made use of the Spanish Virtual Observatory (https://svo.cab.inta-csic.es) project funded by MCIN/AEI/10.13039/501100011033 through grant PID2023-146210NB-I00.
 
-<img width="1361" height="955" alt="SoniAladin" src="https://github.com/user-attachments/assets/b6df18d9-b346-4c38-bd4f-a6525561910b" />
 <img width="1760" height="1320" alt="SoniAladin-H" src="https://github.com/user-attachments/assets/f46fc24e-86ea-4af4-8367-60db15c98e1b" />
+<img width="1361" height="955" alt="SoniAladin" src="https://github.com/user-attachments/assets/b6df18d9-b346-4c38-bd4f-a6525561910b" />
 
 
 INSTALLATION:
